@@ -42,10 +42,14 @@ export interface ClienteInfo {
   direccion: string;
 }
 
+export type Idioma = 'es' | 'en';
+
 export interface CotizacionFormData {
   consultor: ConsultorInfo;
   cliente: ClienteInfo;
   selectedModes: PaymentMode[];
   installmentsSync: (18 | 61)[];
   installmentsKiwi: (18 | 61)[];
+  idioma: Idioma;
+  promoMadres: boolean;
 }

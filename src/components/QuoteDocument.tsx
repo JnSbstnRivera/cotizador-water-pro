@@ -2,13 +2,15 @@ import React from 'react';
 import {
   Document, Page, View, Text, Image, StyleSheet,
 } from '@react-pdf/renderer';
-import { CartItem, PaymentMode, ConsultorInfo, ClienteInfo } from '../types';
+import { CartItem, PaymentMode, ConsultorInfo, ClienteInfo, Idioma } from '../types';
+import { MODE_LABELS } from '../constants';
+import { MADRES_DISCOUNT_WATER } from '../lib/promoMadres';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 const fmt = (v: number) => '$' + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const t = (es: string, en: string, idioma: Idioma) => (idioma === 'en' ? en : es);
 
-// Represents one price column in the table
 export interface EffectiveCol {
   key: string;
   label: string;
@@ -30,173 +32,184 @@ export function buildEffectiveCols(
   if (selectedModes.includes('cash')) {
     cols.push({
       key: 'cash', label: 'Cash', shortLabel: 'CASH', isMonthly: false,
-      color: '#2563eb', lightBg: '#eff6ff',
+      color: '#16a34a', lightBg: '#dcfce7',
       getPrice: (item) => item.product.prices.cash,
     });
   }
-
   if (selectedModes.includes('oriental')) {
     cols.push({
       key: 'oriental', label: 'Oriental', shortLabel: 'ORIENTAL', isMonthly: false,
-      color: '#059669', lightBg: '#ecfdf5',
+      color: '#1D429B', lightBg: '#dbeafe',
       getPrice: (item) => item.product.prices.cash,
     });
   }
-
   if (selectedModes.includes('synchrony')) {
-    const insts = installmentsSync.length > 0 ? installmentsSync : [18];
-    const sorted = [...insts].sort((a, b) => a - b);
+    const insts: (18 | 61)[] = installmentsSync.length > 0 ? installmentsSync : [18];
+    const sorted = [...insts].sort((a, b) => a - b) as (18 | 61)[];
     sorted.forEach(inst => {
       cols.push({
         key: `sync_${inst}`, label: `Synchrony ${inst}m`, shortLabel: `SYNC ${inst}m`,
         isMonthly: true, installments: inst,
-        color: '#7c3aed', lightBg: '#f5f3ff',
+        color: '#8b5cf6', lightBg: '#ede9fe',
         getPrice: (item) => inst === 61 ? item.product.prices.m61 : item.product.prices.m18,
       });
     });
   }
-
   if (selectedModes.includes('kiwi')) {
     cols.push({
-      key: 'kiwi', label: 'Kiwi', shortLabel: 'KIWI',
-      isMonthly: false,
-      color: '#d97706', lightBg: '#fffbeb',
+      key: 'kiwi', label: 'Kiwi', shortLabel: 'KIWI', isMonthly: false,
+      color: '#F89B24', lightBg: '#fef3c7',
       getPrice: (item) => item.product.prices.synchrony,
     });
   }
-
   return cols;
 }
 
-// ── theme ─────────────────────────────────────────────────────────────────────
+// ─── theme ─────────────────────────────────────────────────────────────────
 
-const DARK  = '#0f2044';
-const BLUE  = '#2563eb';
-const LBLUE = '#dbeafe';
-const BG    = '#f0f4fa';
-const BRDR  = '#e2e8f0';
-const TXT   = '#1e293b';
-const MUTED = '#64748b';
-const WHITE = '#ffffff';
-const DARK2 = '#1e3a5f';
+const NAVY    = '#21274e';  // WH AZUL OSCURO
+const BLUE    = '#1D429B';  // WH AZUL
+const ORANGE  = '#F89B24';  // WH AMARILLO
+const BG      = '#FFFFFF';
+const TXT     = '#1e293b';
+const MUTED   = '#64748b';
+const WHITE   = '#ffffff';
+const BORDER  = '#e2e8f0';
 
-// ── styles ───────────────────────────────────────────────────────────────────
+// ─── styles ────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  page: { backgroundColor: BG, fontFamily: 'Helvetica', fontSize: 9, color: TXT },
+  /**
+   * Page padding reserva espacio para header fijo (top) y footer fijo (bottom).
+   * El contenido del flujo cae entre estos dos.
+   */
+  page: {
+    backgroundColor: BG, fontFamily: 'Helvetica', fontSize: 9, color: TXT,
+    paddingTop: 78, paddingBottom: 78,
+  },
 
-  // Header
-  hdr: {
-    backgroundColor: DARK, paddingHorizontal: 30, paddingVertical: 14,
+  // ─── Header fijo (repetido en cada página) ───
+  fixedHeader: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 8,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: BG,
+    borderBottomWidth: 1, borderBottomColor: ORANGE,
   },
-  logo: { width: 90, height: 38, objectFit: 'contain' },
-  hdrRight: { flexDirection: 'column', alignItems: 'flex-end', gap: 2 },
-  hdrTitle: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 13, letterSpacing: 1 },
-  hdrSub: { color: '#93c5fd', fontSize: 7.5, letterSpacing: 0.5 },
+  fixedLogo: { width: 110, height: 56, objectFit: 'contain' },
+  fixedHeaderTitle: { color: NAVY, fontFamily: 'Helvetica-Bold', fontSize: 13, letterSpacing: 1 },
+  fixedHeaderSub: { color: BLUE, fontSize: 7, letterSpacing: 1.5, textTransform: 'uppercase', textAlign: 'right' },
 
-  // Quote meta bar
-  metaBar: {
-    backgroundColor: WHITE, paddingHorizontal: 30, paddingVertical: 8,
-    flexDirection: 'row', gap: 20, borderBottomWidth: 1, borderBottomColor: LBLUE,
+  // ─── Footer fijo (repetido en cada página) ───
+  fixedFooter: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: NAVY, paddingHorizontal: 24, paddingVertical: 12,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
   },
-  metaItem: { flexDirection: 'row', gap: 3, alignItems: 'center' },
-  metaLbl: { fontFamily: 'Helvetica-Bold', color: BLUE, fontSize: 7.5 },
-  metaVal: { color: TXT, fontSize: 7.5 },
 
-  // Info cards
-  infoGrid: {
-    paddingHorizontal: 30, paddingVertical: 10,
-    flexDirection: 'row', gap: 10,
+  // Meta
+  metaRow: {
+    paddingHorizontal: 24, paddingVertical: 6,
+    flexDirection: 'row', gap: 16, flexWrap: 'wrap',
+    backgroundColor: '#f0f6ff', borderTopWidth: 1, borderTopColor: ORANGE,
   },
-  infoCard: {
-    flex: 1, backgroundColor: WHITE, borderRadius: 6,
-    borderWidth: 1, borderColor: BRDR, padding: 10, gap: 4,
-  },
-  infoCardTitle: {
-    fontFamily: 'Helvetica-Bold', fontSize: 7, color: BLUE,
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaLbl: { fontFamily: 'Helvetica-Bold', fontSize: 8, color: NAVY },
+  metaVal: { fontSize: 8, color: TXT },
+
+  // Cliente / Consultor
+  partyRow: { paddingHorizontal: 24, paddingVertical: 8, flexDirection: 'row', gap: 14 },
+  partyCol: { flex: 1, gap: 2 },
+  partyTitle: {
+    fontFamily: 'Helvetica-Bold', fontSize: 8, color: BLUE,
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3,
-    borderBottomWidth: 0.5, borderBottomColor: LBLUE, paddingBottom: 3,
+    borderBottomWidth: 1, borderBottomColor: ORANGE, paddingBottom: 2,
   },
-  infoRow: { flexDirection: 'row', gap: 4, alignItems: 'flex-start' },
-  infoLbl: { fontFamily: 'Helvetica-Bold', color: MUTED, fontSize: 7.5, minWidth: 60 },
-  infoVal: { color: TXT, fontSize: 7.5, flex: 1 },
+  partyLine: { flexDirection: 'row', gap: 4 },
+  partyLbl: { fontFamily: 'Helvetica-Bold', fontSize: 7.5, color: MUTED, minWidth: 55 },
+  partyVal: { fontSize: 7.5, color: TXT, flex: 1 },
 
-  // Section title
-  secWrap: { paddingHorizontal: 30, paddingBottom: 6 },
-  secTitle: {
-    fontFamily: 'Helvetica-Bold', fontSize: 7, color: BLUE,
-    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 6,
+  // Modos cotizados (chips overview)
+  chipsRow: {
+    paddingHorizontal: 24, paddingVertical: 6,
+    flexDirection: 'row', gap: 5, flexWrap: 'wrap', alignItems: 'center',
+  },
+  chipsLbl: { fontFamily: 'Helvetica-Bold', fontSize: 8, color: NAVY },
+  chip: {
+    paddingHorizontal: 8, paddingVertical: 2.5, borderRadius: 10,
+    fontFamily: 'Helvetica-Bold', fontSize: 7.5, color: WHITE,
   },
 
-  // Products table
-  table: { marginHorizontal: 30, marginBottom: 10, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: BRDR },
-  tableHead: { backgroundColor: DARK2, flexDirection: 'row' },
-  tableHeadProductCell: { padding: 7, flex: 3 },
-  tableHeadCell: { padding: 7, flex: 1, borderLeftWidth: 0.5, borderLeftColor: '#ffffff30' },
-  tableHeadTxt: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.5 },
-  tableHeadTxtCenter: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
-
-  tableRow: { flexDirection: 'row', borderTopWidth: 0.5, borderTopColor: BRDR },
-  tableRowEven: { backgroundColor: '#f8fafc' },
-  tableRowOdd: { backgroundColor: WHITE },
-
-  productCell: { flex: 3, padding: 7, flexDirection: 'row', gap: 6, alignItems: 'center' },
-  productImg: { width: 28, height: 28, objectFit: 'contain' },
-  productName: { fontFamily: 'Helvetica-Bold', fontSize: 8, color: TXT },
-  productCat: { fontSize: 6, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.3 },
-  productQty: { fontSize: 6.5, color: MUTED, marginTop: 1 },
-
-  priceCell: { flex: 1, padding: 7, borderLeftWidth: 0.5, borderLeftColor: BRDR, justifyContent: 'center', alignItems: 'center' },
-  priceMain: { fontFamily: 'Helvetica-Bold', fontSize: 9, textAlign: 'center' },
-  priceSub: { fontSize: 6, color: MUTED, textAlign: 'center', marginTop: 1 },
-  ivuRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 2 },
-  ivuDivider: { height: 0.5, backgroundColor: BRDR, width: '100%', marginTop: 2 },
-  ivuLbl: { fontSize: 5.5, color: MUTED },
-  ivuVal: { fontSize: 5.5, color: MUTED, fontFamily: 'Helvetica-Bold' },
-
-  // Discount bar
-  discBar: {
-    marginHorizontal: 30, marginBottom: 8,
-    backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#86efac',
-    borderRadius: 6, padding: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center',
+  // Section block (1 columna, full width)
+  section: {
+    marginHorizontal: 24, marginTop: 8,
+    borderRadius: 6, overflow: 'hidden',
+    borderWidth: 1, borderColor: BORDER,
   },
-  discLbl: { fontFamily: 'Helvetica-Bold', fontSize: 7.5, color: '#15803d' },
-  discItem: { fontSize: 7.5, color: '#15803d', fontFamily: 'Helvetica-Bold' },
-
-  // Totals
-  totalsWrap: { paddingHorizontal: 30, paddingBottom: 10 },
-  totalsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  totalCard: {
-    flex: 1, minWidth: 100, backgroundColor: WHITE,
-    borderRadius: 6, borderWidth: 1, borderColor: BRDR,
-    padding: 10, alignItems: 'center', gap: 3,
-  },
-  totalBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 2 },
-  totalBadgeTxt: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  totalAmount: { fontFamily: 'Helvetica-Bold', fontSize: 15, color: TXT },
-  totalLabel: { fontSize: 6.5, color: MUTED, textAlign: 'center' },
-  totalNote: { fontSize: 6, color: MUTED, fontFamily: 'Helvetica-Bold', textAlign: 'center', marginTop: 1 },
-
-  spacer: { flex: 1 },
-  notice: {
-    marginHorizontal: 30, marginBottom: 6,
-    backgroundColor: '#fefce8', borderWidth: 0.5, borderColor: '#fde047',
-    borderRadius: 5, padding: 7,
-  },
-  noticeTxt: { fontSize: 6.5, color: '#713f12', textAlign: 'center', fontFamily: 'Helvetica-Bold' },
-
-  footer: {
-    backgroundColor: DARK, paddingHorizontal: 30, paddingVertical: 14,
+  sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 7,
   },
-  fSite: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 13 },
-  fCol: { gap: 2.5 },
+  sectionHeaderTitle: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
+  sectionHeaderSub: { color: WHITE, fontSize: 8, opacity: 0.9, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // Producto: layout horizontal con imagen grande + texto stacked
+  trow: {
+    flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 6,
+    alignItems: 'center', gap: 10,
+    borderBottomWidth: 0.25, borderBottomColor: '#f1f5f9',
+  },
+  tdProductImg: { width: 60, height: 60, objectFit: 'contain' },
+  tdProductTxt: { flex: 1 },
+  tdProductName: { fontFamily: 'Helvetica-Bold', fontSize: 9.5, color: NAVY, lineHeight: 1.2 },
+  tdProductMeta: { fontSize: 7, color: MUTED, marginTop: 1 },
+  tdProductPrice: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: NAVY, marginTop: 3 },
+  tdNA: { fontSize: 8, color: '#ef4444', fontStyle: 'italic', marginTop: 2 },
+
+  // Section discounts + total
+  sectionDiscounts: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderTopWidth: 0.5, borderTopColor: BORDER, gap: 2,
+  },
+  discountLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  discountLbl: { fontSize: 8.5, color: '#15803d', fontFamily: 'Helvetica-Bold' },
+  discountVal: { fontSize: 8.5, color: '#15803d', fontFamily: 'Helvetica-Bold' },
+
+  ivuLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  ivuLbl: { fontSize: 8.5, color: MUTED, fontFamily: 'Helvetica-Bold' },
+  ivuVal: { fontSize: 8.5, color: TXT, fontFamily: 'Helvetica-Bold' },
+
+  sectionTotal: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: BORDER,
+  },
+  sectionTotalLbl: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTotalVal: { fontFamily: 'Helvetica-Bold', fontSize: 15 },
+
+  // Madres banner
+  madresBanner: {
+    marginHorizontal: 24, marginTop: 10, marginBottom: 4,
+    backgroundColor: '#FFEAF3', borderWidth: 1.5, borderColor: '#E84F97',
+    borderRadius: 8, padding: 8,
+    flexDirection: 'column', alignItems: 'center', gap: 2,
+  },
+  madresTitle: {
+    fontSize: 11, color: '#BE2E71', fontFamily: 'Helvetica-Bold',
+    textAlign: 'center', letterSpacing: 0.5,
+  },
+  madresSub: {
+    fontSize: 7.5, color: '#8E2658', textAlign: 'center',
+    fontFamily: 'Helvetica', lineHeight: 1.3,
+  },
+
+  // Footer (texto)
+  fSite: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 12 },
+  fCol: { gap: 2 },
   fHead: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 7.5, marginBottom: 1 },
   fText: { color: '#93c5fd', fontSize: 7 },
 });
 
-// ── component ─────────────────────────────────────────────────────────────────
+// ─── component ────────────────────────────────────────────────────────────
 
 export interface QuoteDocumentProps {
   items: CartItem[];
@@ -208,230 +221,326 @@ export interface QuoteDocumentProps {
   quoteNumber: string;
   date: string;
   effectiveCols: EffectiveCol[];
+  idioma: Idioma;
+  promoMadres: boolean;
+  /** Kept for API compatibility — not used in section layout */
+  primarySyncTerm?: 18 | 61;
 }
 
-const LOGO = 'https://i.postimg.cc/6T5J2v2G/Thumbnail.png';
+const LOGO = 'https://i.postimg.cc/PqD3CmtW/WIndmar-water.png';
 
-export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
-  items, hasSolarBundle, hasROBundle, downPayment,
-  consultor, cliente, quoteNumber, date, effectiveCols,
+// ─── ModeSection ───────────────────────────────────────────────────────────
+
+interface ModeSectionProps {
+  col: EffectiveCol;
+  items: CartItem[];
+  hasSolarBundle: boolean;
+  hasROBundle: boolean;
+  downPayment: number;
+  promoMadres: boolean;
+  idioma: Idioma;
+}
+
+const ModeSection: React.FC<ModeSectionProps> = ({
+  col, items, hasSolarBundle, hasROBundle, downPayment, promoMadres, idioma,
 }) => {
-  const hasDisc = hasSolarBundle || hasROBundle || downPayment > 0;
+  // Calculo del subtotal de la sección (suma de price × qty)
+  let subtotal = 0;
+  const rows = items.map(item => {
+    const unitPrice = col.getPrice(item);
+    const lineTotal = (unitPrice ?? 0) * item.quantity;
+    if (unitPrice != null) subtotal += lineTotal;
+    return { item, unitPrice, lineTotal };
+  });
 
-  const getColTotal = (col: EffectiveCol): number => {
-    const sub = items.reduce((s, item) => {
-      const p = col.getPrice(item);
-      return s + (p ?? 0) * item.quantity;
-    }, 0);
+  // IVU breakdown — solo para modos no-mensuales
+  let sinIvu = 0;
+  let ivu    = 0;
+  if (!col.isMonthly) {
+    items.forEach(item => {
+      if (col.getPrice(item) == null) return;
+      if (col.key === 'kiwi') {
+        sinIvu += (item.product.synchronySinIvu ?? 0) * item.quantity;
+        ivu    += (item.product.ivu               ?? 0) * item.quantity;
+      } else {
+        // cash / oriental
+        sinIvu += (item.product.cashSinIvu ?? 0) * item.quantity;
+        ivu    += (item.product.ivuCash    ?? 0) * item.quantity;
+      }
+    });
+  }
 
-    const sdsc = hasSolarBundle ? (col.isMonthly ? 500 / (col.installments ?? 18) : 500) : 0;
+  // Descuentos aplicables a esta sección
+  const inst = col.installments ?? 18;
+  const div = col.isMonthly ? inst : 1;
 
-    // Only apply RO bundle discount if RO actually has a price in this column
-    const roItem = items.find(i => i.product.id === 'trat-ro');
-    const roHasPrice = roItem != null && col.getPrice(roItem) != null;
-    const rdsc = (hasROBundle && roHasPrice)
-      ? (col.isMonthly ? 1000 / (col.installments ?? 18) : 1000)
-      : 0;
+  const discounts: { lbl: string; val: number }[] = [];
 
-    const dpdsc = col.isMonthly ? downPayment / (col.installments ?? 18) : downPayment;
+  if (hasSolarBundle) {
+    discounts.push({
+      lbl: idioma === 'en' ? 'Solar Bundle' : 'Solar Bundle',
+      val: 500 / div,
+    });
+  }
+  // RO Bundle: solo si RO tiene precio en este modo (evita dividir por null en sync)
+  const roItem = items.find(i => i.product.id === 'trat-ro');
+  const roHasPrice = roItem != null && col.getPrice(roItem) != null;
+  if (hasROBundle && roHasPrice) {
+    discounts.push({
+      lbl: idioma === 'en' ? 'RO Bundle' : 'Combo RO',
+      val: 1000 / div,
+    });
+  }
+  if (promoMadres) {
+    discounts.push({
+      lbl: idioma === 'en' ? "Mother's 2026" : 'Promo Madres 2026',
+      val: MADRES_DISCOUNT_WATER / div,
+    });
+  }
+  if (downPayment > 0) {
+    discounts.push({
+      lbl: idioma === 'en' ? 'Down Payment' : 'Pronto pago',
+      val: downPayment / div,
+    });
+  }
 
-    return sub - sdsc - rdsc - dpdsc;
-  };
+  const totalDiscounts = discounts.reduce((s, d) => s + d.val, 0);
+  const totalFinal     = Math.max(0, subtotal - totalDiscounts);
 
   return (
-    <Document>
-      <Page size="A4" style={s.page}>
+    <View style={s.section} wrap={false}>
+      {/* Section header */}
+      <View style={[s.sectionHeader, { backgroundColor: col.color }]}>
+        <Text style={s.sectionHeaderTitle}>{col.label}</Text>
+        <Text style={s.sectionHeaderSub}>
+          {col.isMonthly
+            ? t(`a ${col.installments} meses`, `${col.installments}m plan`, idioma)
+            : t('contado', 'one-time', idioma)}
+        </Text>
+      </View>
 
-        {/* HEADER */}
-        <View style={s.hdr}>
-          <Image src={LOGO} style={s.logo} />
-          <View style={s.hdrRight}>
-            <Text style={s.hdrTitle}>COTIZACIÓN FORMAL</Text>
-            <Text style={s.hdrSub}>SISTEMAS DE AGUA · WINDMAR HOME</Text>
+      {/* Product rows — compactas */}
+      {rows.map(({ item, unitPrice, lineTotal }) => (
+        <View key={item.product.id} style={s.trow}>
+          {item.product.imageUrl && (
+            <Image src={item.product.imageUrl} style={s.tdProductImg} />
+          )}
+          <View style={s.tdProductTxt}>
+            <Text style={s.tdProductName}>{item.product.name}</Text>
+            <Text style={s.tdProductMeta}>
+              {item.product.category} · ×{item.quantity}
+            </Text>
+            {unitPrice == null ? (
+              <Text style={s.tdNA}>
+                {t('N/A en este modo', 'N/A in this mode', idioma)}
+              </Text>
+            ) : (
+              <Text style={s.tdProductPrice}>
+                {fmt(lineTotal)}{col.isMonthly && t('/mes', '/mo', idioma)}
+                <Text style={{ fontSize: 6.5, color: MUTED, fontFamily: 'Helvetica' }}>
+                  {item.quantity > 1 && ` (${fmt(unitPrice)}${col.isMonthly ? '/mes' : ''} c/u)`}
+                </Text>
+              </Text>
+            )}
           </View>
         </View>
+      ))}
 
-        {/* META BAR */}
-        <View style={s.metaBar}>
-          <View style={s.metaItem}>
-            <Text style={s.metaLbl}>No. </Text>
-            <Text style={s.metaVal}>{quoteNumber}</Text>
+      {/* IVU breakdown (solo cash/oriental/kiwi) */}
+      {!col.isMonthly && (sinIvu > 0 || ivu > 0) && (
+        <View style={s.sectionDiscounts}>
+          <View style={s.ivuLine}>
+            <Text style={s.ivuLbl}>{t('Subtotal sin IVU', 'Subtotal (no tax)', idioma)}</Text>
+            <Text style={s.ivuVal}>{fmt(sinIvu)}</Text>
           </View>
-          <View style={s.metaItem}>
-            <Text style={s.metaLbl}>Fecha: </Text>
-            <Text style={s.metaVal}>{date}</Text>
-          </View>
-          <View style={s.metaItem}>
-            <Text style={s.metaLbl}>Vigencia: </Text>
-            <Text style={s.metaVal}>30 días</Text>
+          <View style={s.ivuLine}>
+            <Text style={s.ivuLbl}>{t('IVU 11.5%', 'Tax 11.5%', idioma)}</Text>
+            <Text style={s.ivuVal}>{fmt(ivu)}</Text>
           </View>
         </View>
+      )}
 
-        {/* INFO CARDS */}
-        <View style={s.infoGrid}>
-          {/* Consultor */}
-          <View style={s.infoCard}>
-            <Text style={s.infoCardTitle}>Consultor</Text>
-            {([
-              ['Nombre:', consultor.nombre || '—'],
-              ['Correo:', consultor.correo || '—'],
-              ['Teléfono:', consultor.telefono || '—'],
-            ] as [string, string][]).map(([l, v]) => (
-              <View key={l} style={s.infoRow}>
-                <Text style={s.infoLbl}>{l}</Text>
-                <Text style={s.infoVal}>{v}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Cliente */}
-          <View style={s.infoCard}>
-            <Text style={s.infoCardTitle}>Cliente</Text>
-            {([
-              ['Nombre:', cliente.nombre || '—'],
-              ['Correo:', cliente.correo || '—'],
-              ['Teléfono:', cliente.telefono || '—'],
-              ['Dirección:', cliente.direccion || '—'],
-            ] as [string, string][]).map(([l, v]) => (
-              <View key={l} style={s.infoRow}>
-                <Text style={s.infoLbl}>{l}</Text>
-                <Text style={s.infoVal}>{v}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* PRODUCTS TABLE */}
-        <View style={s.secWrap}>
-          <Text style={s.secTitle}>Productos Cotizados</Text>
-        </View>
-
-        <View style={s.table}>
-          {/* Table header */}
-          <View style={s.tableHead}>
-            <View style={s.tableHeadProductCell}>
-              <Text style={s.tableHeadTxt}>Producto</Text>
-            </View>
-            {effectiveCols.map(col => (
-              <View key={col.key} style={s.tableHeadCell}>
-                <Text style={s.tableHeadTxtCenter}>{col.shortLabel}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Table rows */}
-          {items.map((item, idx) => (
-            <View key={item.product.id} style={[s.tableRow, idx % 2 === 0 ? s.tableRowEven : s.tableRowOdd]}>
-              <View style={s.productCell}>
-                <Image src={item.product.imageUrl} style={s.productImg} />
-                <View>
-                  <Text style={s.productName}>{item.product.name}</Text>
-                  <Text style={s.productCat}>{item.product.category}</Text>
-                  <Text style={s.productQty}>Cant: {item.quantity}</Text>
-                </View>
-              </View>
-              {effectiveCols.map(col => {
-                const price = col.getPrice(item);
-                const lineTotal = price != null ? price * item.quantity : null;
-                return (
-                  <View key={col.key} style={s.priceCell}>
-                    {lineTotal != null ? (
-                      <>
-                        <Text style={[s.priceMain, { color: col.color }]}>{fmt(lineTotal)}</Text>
-                        {col.isMonthly && (
-                          <Text style={s.priceSub}>{col.installments}m c/u</Text>
-                        )}
-                        {!col.isMonthly && (() => {
-                          const sinIvu = col.key === 'kiwi'
-                            ? item.product.synchronySinIvu
-                            : item.product.cashSinIvu;
-                          const ivuAmt = col.key === 'kiwi'
-                            ? item.product.ivu
-                            : item.product.ivuCash;
-                          if (sinIvu == null) return null;
-                          return (
-                            <>
-                              <View style={s.ivuDivider} />
-                              <View style={s.ivuRow}>
-                                <Text style={s.ivuLbl}>Sin IVU:</Text>
-                                <Text style={s.ivuVal}>{fmt(sinIvu * item.quantity)}</Text>
-                              </View>
-                              <View style={s.ivuRow}>
-                                <Text style={s.ivuLbl}>IVU 11.5%:</Text>
-                                <Text style={s.ivuVal}>{fmt((ivuAmt ?? 0) * item.quantity)}</Text>
-                              </View>
-                            </>
-                          );
-                        })()}
-                      </>
-                    ) : (
-                      <Text style={[s.priceSub, { color: '#94a3b8' }]}>N/D</Text>
-                    )}
-                  </View>
-                );
-              })}
+      {/* Descuentos */}
+      {discounts.length > 0 && (
+        <View style={s.sectionDiscounts}>
+          {discounts.map((d, i) => (
+            <View key={i} style={s.discountLine}>
+              <Text style={s.discountLbl}>{d.lbl}</Text>
+              <Text style={s.discountVal}>
+                −{fmt(d.val)}{col.isMonthly && t('/mes', '/mo', idioma)}
+              </Text>
             </View>
           ))}
         </View>
+      )}
 
-        {/* DISCOUNT BAR */}
-        {hasDisc && (
-          <View style={s.discBar}>
-            <Text style={s.discLbl}>Descuentos aplicados:</Text>
-            {hasSolarBundle && <Text style={s.discItem}> ☀️ Firma y Gana -$500 </Text>}
-            {hasROBundle    && <Text style={s.discItem}> 💧 Bundle RO -$1,000 </Text>}
-            {downPayment > 0 && <Text style={s.discItem}> 💰 Down Payment -{fmt(downPayment)} </Text>}
+      {/* Section total */}
+      <View style={[s.sectionTotal, { backgroundColor: col.lightBg }]}>
+        <Text style={s.sectionTotalLbl}>
+          {col.isMonthly
+            ? t(`Total ${col.installments}m`, `Total ${col.installments}m`, idioma)
+            : t('Total con descuentos', 'Total with discounts', idioma)}
+        </Text>
+        <Text style={[s.sectionTotalVal, { color: col.color }]}>
+          {fmt(totalFinal)}{col.isMonthly && t('/mes', '/mo', idioma)}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+// ─── main component ───────────────────────────────────────────────────────
+
+export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
+  items, hasSolarBundle, hasROBundle, downPayment,
+  consultor, cliente, quoteNumber, date, effectiveCols, idioma, promoMadres,
+}) => {
+  return (
+    <Document>
+      <Page size="LETTER" style={s.page}>
+
+        {/* HEADER FIJO — se repite en cada página */}
+        <View style={s.fixedHeader} fixed>
+          <Image src={LOGO} style={s.fixedLogo} />
+          <View>
+            <Text style={s.fixedHeaderTitle}>
+              {t('COTIZACIÓN FORMAL', 'FORMAL QUOTE', idioma)}
+            </Text>
+            <Text style={s.fixedHeaderSub}>
+              {t('No.', 'No.', idioma)} {quoteNumber} · {date}
+            </Text>
+          </View>
+        </View>
+
+        {/* META */}
+        <View style={s.metaRow}>
+          <View style={s.metaItem}>
+            <Text style={s.metaLbl}>{t('Cotización No.', 'Quote No.', idioma)}</Text>
+            <Text style={s.metaVal}>{quoteNumber}</Text>
+          </View>
+          <View style={s.metaItem}>
+            <Text style={s.metaLbl}>{t('Fecha:', 'Date:', idioma)}</Text>
+            <Text style={s.metaVal}>{date}</Text>
+          </View>
+          <View style={s.metaItem}>
+            <Text style={s.metaLbl}>{t('Vigencia:', 'Valid for:', idioma)}</Text>
+            <Text style={s.metaVal}>{t('30 días', '30 days', idioma)}</Text>
+          </View>
+        </View>
+
+        {/* PARTIES */}
+        <View style={s.partyRow}>
+          <View style={s.partyCol}>
+            <Text style={s.partyTitle}>{t('Consultor', 'Consultant', idioma)}</Text>
+            <View style={s.partyLine}>
+              <Text style={s.partyLbl}>{t('Nombre:', 'Name:', idioma)}</Text>
+              <Text style={s.partyVal}>{consultor.nombre || '—'}</Text>
+            </View>
+            <View style={s.partyLine}>
+              <Text style={s.partyLbl}>{t('Teléfono:', 'Phone:', idioma)}</Text>
+              <Text style={s.partyVal}>{consultor.telefono || '—'}</Text>
+            </View>
+            <View style={s.partyLine}>
+              <Text style={s.partyLbl}>{t('Correo:', 'Email:', idioma)}</Text>
+              <Text style={s.partyVal}>{consultor.correo || '—'}</Text>
+            </View>
+          </View>
+          <View style={s.partyCol}>
+            <Text style={s.partyTitle}>{t('Cliente', 'Customer', idioma)}</Text>
+            <View style={s.partyLine}>
+              <Text style={s.partyLbl}>{t('Nombre:', 'Name:', idioma)}</Text>
+              <Text style={s.partyVal}>{cliente.nombre || '—'}</Text>
+            </View>
+            <View style={s.partyLine}>
+              <Text style={s.partyLbl}>{t('Teléfono:', 'Phone:', idioma)}</Text>
+              <Text style={s.partyVal}>{cliente.telefono || '—'}</Text>
+            </View>
+            <View style={s.partyLine}>
+              <Text style={s.partyLbl}>{t('Correo:', 'Email:', idioma)}</Text>
+              <Text style={s.partyVal}>{cliente.correo || '—'}</Text>
+            </View>
+            <View style={s.partyLine}>
+              <Text style={s.partyLbl}>{t('Dirección:', 'Address:', idioma)}</Text>
+              <Text style={s.partyVal}>{cliente.direccion || '—'}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* MODES OVERVIEW — una sola chip por modo (synchrony no se repite por término) */}
+        <View style={s.chipsRow}>
+          <Text style={s.chipsLbl}>{t('Modos cotizados:', 'Quoted modes:', idioma)}</Text>
+          {(() => {
+            const seen = new Set<string>();
+            const uniqueChips: { key: string; label: string; color: string }[] = [];
+            effectiveCols.forEach(col => {
+              const baseKey = col.isMonthly ? 'synchrony' : col.key;
+              if (seen.has(baseKey)) return;
+              seen.add(baseKey);
+              uniqueChips.push({
+                key: baseKey,
+                label: MODE_LABELS[baseKey] || baseKey,
+                color: col.color,
+              });
+            });
+            return uniqueChips.map(c => (
+              <Text key={c.key} style={[s.chip, { backgroundColor: c.color }]}>
+                {c.label}
+              </Text>
+            ));
+          })()}
+        </View>
+
+        {/* SECCIONES POR MODO — una columna, filas full-width */}
+        {effectiveCols.map(col => (
+          <ModeSection
+            key={col.key}
+            col={col}
+            items={items}
+            hasSolarBundle={hasSolarBundle}
+            hasROBundle={hasROBundle}
+            downPayment={downPayment}
+            promoMadres={promoMadres}
+            idioma={idioma}
+          />
+        ))}
+
+        {/* Madres — banner con corazones (sólo cuando promo activa) */}
+        {promoMadres && (
+          <View style={s.madresBanner} wrap={false}>
+            <Text style={s.madresTitle}>
+              {t(
+                '♥ ♥ Promo Mes de las Madres 2026 ♥ ♥',
+                "♥ ♥ Mother's Day Promo 2026 ♥ ♥",
+                idioma,
+              )}
+            </Text>
+            <Text style={s.madresSub}>
+              {t(
+                `Descuento de $${MADRES_DISCOUNT_WATER} aplicado · Vigente del 7 al 14 de mayo 2026 · Solo en showroom con cliente citado`,
+                `$${MADRES_DISCOUNT_WATER} discount applied · Valid May 7–14, 2026 · In-showroom only with scheduled customer`,
+                idioma,
+              )}
+            </Text>
+            <Text style={s.madresSub}>
+              Roosevelt · Mayagüez · Ponce · Hatillo
+            </Text>
           </View>
         )}
 
-        {/* TOTALS */}
-        <View style={s.totalsWrap}>
-          <Text style={[s.secTitle, { marginBottom: 8 }]}>Resumen de Totales</Text>
-          <View style={s.totalsRow}>
-            {effectiveCols.map(col => {
-              const total = getColTotal(col);
-              return (
-                <View key={col.key} style={[s.totalCard, { borderColor: col.color + '40', borderTopWidth: 3, borderTopColor: col.color }]}>
-                  <View style={[s.totalBadge, { backgroundColor: col.color }]}>
-                    <Text style={s.totalBadgeTxt}>{col.shortLabel}</Text>
-                  </View>
-                  <Text style={[s.totalAmount, { color: col.color }]}>{fmt(total)}</Text>
-                  <Text style={s.totalLabel}>
-                    {col.isMonthly ? 'Mensualidad estimada' : 'Total con IVU'}
-                  </Text>
-                  {col.isMonthly && (
-                    <Text style={s.totalNote}>*Sujeto a aprobación de crédito</Text>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={s.spacer} />
-
-        {/* NOTICE */}
-        <View style={s.notice}>
-          <Text style={s.noticeTxt}>
-            Los precios incluyen IVU del 11.5%. Cotización válida por 30 días a partir de la fecha de emisión. Precios sujetos a cambio sin previo aviso.
-          </Text>
-        </View>
-
-        {/* FOOTER */}
-        <View style={s.footer}>
+        {/* FOOTER FIJO — se repite en cada página, siempre al fondo */}
+        <View style={s.fixedFooter} fixed>
           <Text style={s.fSite}>windmar.com</Text>
           <View style={s.fCol}>
-            <Text style={s.fHead}>Contáctanos</Text>
+            <Text style={s.fHead}>{t('Contáctanos', 'Contact us', idioma)}</Text>
             <Text style={s.fText}>ventas@windmarhome.com</Text>
             <Text style={s.fText}>(787) 395-7766</Text>
           </View>
           <View style={s.fCol}>
-            <Text style={s.fHead}>Dirección</Text>
+            <Text style={s.fHead}>{t('Dirección', 'Address', idioma)}</Text>
             <Text style={s.fText}>1255 Avenida F.D. Roosevelt,</Text>
             <Text style={s.fText}>San Juan, 00920, Puerto Rico.</Text>
           </View>
         </View>
-
       </Page>
     </Document>
   );
