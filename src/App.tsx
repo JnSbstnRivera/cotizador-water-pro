@@ -5,29 +5,23 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
+import { Footer } from './components/Footer';
 import { ProductCard } from './components/ProductCard';
 import { Cart } from './components/Cart';
-import { CotizacionModal } from './components/CotizacionModal';
-import { Product, PaymentMode, CartItem, Category, CotizacionFormData } from './types';
+import { PDFModal } from './components/PDFModal';
+import { Product, PaymentMode, CartItem, Category, CotizacionFormData, Idioma } from './types';
 import { PRODUCTS, MODE_LABELS } from './constants';
 import { downloadCotizacionPDF } from './hooks/usePDFCotizacion';
-import { Search, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
 
-function getCartItemPrice(item: CartItem, mode: PaymentMode): number {
-  if (mode === 'cash' || mode === 'oriental') return item.product.prices.cash ?? 0;
-  if (mode === 'kiwi') return item.product.prices.synchrony ?? 0;
-  // synchrony — uses monthly installments
-  const inst = item.installments ?? 18;
-  return inst === 61 ? (item.product.prices.m61 ?? 0) : (item.product.prices.m18 ?? 0);
-}
 
 export default function App() {
   const [mode, setMode] = useState<PaymentMode>('cash');
+  const [syncTerm, setSyncTerm] = useState<18 | 61>(18);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState<Category | 'all'>('all');
   const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [toast, setToast] = useState<{ msg: string; isError?: boolean } | null>(null);
@@ -35,6 +29,25 @@ export default function App() {
   const [downPayment, setDownPayment] = useState(0);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [idiomaPDF, setIdiomaPDF] = useState<Idioma>('es');
+  const [promoMadres, setPromoMadres] = useState(false);
+
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('wh-theme') === 'dark';
+    } catch { return false; }
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      try { localStorage.setItem('wh-theme', 'dark'); } catch { /* ignore */ }
+    } else {
+      root.classList.remove('dark');
+      try { localStorage.setItem('wh-theme', 'light'); } catch { /* ignore */ }
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsSplashVisible(false), 3000);
@@ -42,8 +55,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handleDrop = (e: any) => {
-      const { productId } = e.detail;
+    const handleDrop = (e: Event) => {
+      const ce = e as CustomEvent<{ productId: string }>;
+      const productId = ce.detail?.productId;
+      if (!productId) return;
       const product = PRODUCTS.find(p => p.id === productId);
       if (product) {
         handleAddToCart(product);
@@ -58,55 +73,30 @@ export default function App() {
     setTimeout(() => setToast(null), 2200);
   };
 
-  const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter(p => {
-      const matchCat = filterCat === 'all' || p.category === filterCat;
-      
-      if (!search) return matchCat;
+  const filteredProducts = useMemo(
+    () => PRODUCTS.filter(p => filterCat === 'all' || p.category === filterCat),
+    [filterCat],
+  );
 
-      // Smart multi-word search
-      const searchTerms = search.toLowerCase().trim().split(/\s+/).filter(t => t.length > 0);
-      const searchableText = `${p.name} ${p.category} ${p.description} ${p.personas || ''}`.toLowerCase();
-      
-      const matchSearch = searchTerms.every(term => searchableText.includes(term));
-      
-      return matchCat && matchSearch;
-    });
-  }, [search, filterCat]);
-
-  const handleAddToCart = (product: Product, installments?: 18 | 61) => {
-    const price = product.prices[mode];
-    if (price === null) {
-      showToast('No disponible en este modo', true);
-      return;
-    }
-
+  const handleAddToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
-        return prev.map(item => 
-          item.product.id === product.id 
-            ? { ...item, quantity: item.quantity + 1, installments: installments || item.installments } 
+        return prev.map(item =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { product, quantity: 1, installments: installments || 18 }];
+      return [...prev, { product, quantity: 1 }];
     });
-    showToast('Producto agregado ✓');
+    showToast(`${product.name} agregado ✓`);
   };
 
   const handleUpdateQty = (id: string, delta: number) => {
-    setCart(prev => prev.map(item => 
-      item.product.id === id 
-        ? { ...item, quantity: Math.max(1, item.quantity + delta) } 
-        : item
-    ));
-  };
-
-  const handleUpdateInstallments = (id: string, installments: 18 | 61) => {
-    setCart(prev => prev.map(item => 
-      item.product.id === id 
-        ? { ...item, installments } 
+    setCart(prev => prev.map(item =>
+      item.product.id === id
+        ? { ...item, quantity: Math.max(1, item.quantity + delta) }
         : item
     ));
   };
@@ -121,134 +111,6 @@ export default function App() {
     showToast('Cotización vaciada');
   };
 
-  const handleCopyQuote = async () => {
-    if (cart.length === 0) return;
-
-    const isSynch = mode === 'synchrony';
-    const isKiwi  = mode === 'kiwi';
-    const isCash  = mode === 'cash' || mode === 'oriental';
-
-    const total = cart.reduce((s, c) => s + getCartItemPrice(c, mode) * c.quantity, 0);
-
-    const hasRO = cart.some(item => item.product.id === 'trat-ro');
-    const hasOther = cart.some(item => item.product.id !== 'trat-ro');
-    const applyRODiscount = hasRO && hasOther;
-    const roInst = cart.find(i => i.product.id === 'trat-ro')?.installments ?? 18;
-
-    const discountFor = (flat: number) =>
-      isSynch ? flat / (cart[0]?.installments ?? 18) : flat;
-    const roDiscountFor = (flat: number) =>
-      isSynch ? flat / roInst : flat;
-
-    const finalTotal = total
-      - (hasBonus ? discountFor(500) : 0)
-      - (applyRODiscount ? roDiscountFor(1000) : 0)
-      - (isSynch ? downPayment / (cart[0]?.installments ?? 18) : downPayment);
-
-    const lines = [
-      '🌊 COTIZADOR WATER PRO',
-      `Modo de pago: ${MODE_LABELS[mode]}`,
-      hasBonus ? '☀️💧 Bundle Solar + Agua (Firma y Gana): -$500.00 aplicado' : '',
-      applyRODiscount ? '💧 Bundle Reverse Osmosis: -$1,000.00 aplicado' : '',
-      downPayment > 0 ? `💰 Pronto (Down Payment): -${fmt.format(downPayment)} aplicado` : '',
-      '─'.repeat(34),
-      ...cart.map(item => {
-        const price = getCartItemPrice(item, mode);
-        let line = `• ${item.product.name} ×${item.quantity}  →  ${fmt.format(price * item.quantity)}`;
-        if (isCash && item.product.cashSinIvu) {
-          line += `\n  (Sin IVU: ${fmt.format(item.product.cashSinIvu * item.quantity)} | IVU: ${fmt.format((item.product.ivuCash || 0) * item.quantity)})`;
-        }
-        if (isSynch) {
-          line += ` (${item.installments} meses)`;
-          line += `\n  (Total Financiado: ${fmt.format((item.product.prices.synchrony || 0) * item.quantity)})`;
-        }
-        return line;
-      }),
-      '─'.repeat(34),
-      `${isSynch ? 'TOTAL MENSUAL' : 'TOTAL'}: ${fmt.format(finalTotal)}`,
-    ];
-
-    if (isCash) {
-      const sinIvu = cart.reduce((s, c) => s + (c.product.cashSinIvu || 0) * c.quantity, 0);
-      let finalSinIvu = sinIvu - (hasBonus ? 448.43 : 0) - (applyRODiscount ? 896.86 : 0) - (downPayment > 0 ? downPayment / 1.115 : 0);
-      let finalIvu    = cart.reduce((s, c) => s + (c.product.ivuCash || 0) * c.quantity, 0)
-                        - (hasBonus ? 51.57 : 0) - (applyRODiscount ? 103.14 : 0)
-                        - (downPayment > 0 ? downPayment - downPayment / 1.115 : 0);
-      if (sinIvu > 0) {
-        lines.push(`Total Sin IVU: ${fmt.format(finalSinIvu)}`);
-        lines.push(`Total IVU: ${fmt.format(finalIvu)}`);
-        lines.push('─'.repeat(34));
-      }
-    }
-
-    if (isSynch) {
-      const totalFinanciado = cart.reduce((s, c) => s + (c.product.prices.synchrony || 0) * c.quantity, 0)
-        - (hasBonus ? 500 : 0) - (applyRODiscount ? 1000 : 0) - downPayment;
-      lines.push(`Total Financiado: ${fmt.format(totalFinanciado)}`);
-      lines.push('─'.repeat(34));
-    }
-
-    if (isKiwi) {
-      const sinIvu = cart.reduce((s, c) => s + (c.product.synchronySinIvu || 0) * c.quantity, 0);
-      if (sinIvu > 0) {
-        const ivu = cart.reduce((s, c) => s + (c.product.ivu || 0) * c.quantity, 0);
-        lines.push(`Total Sin IVU: ${fmt.format(sinIvu)}`);
-        lines.push(`Total IVU: ${fmt.format(ivu)}`);
-        lines.push('─'.repeat(34));
-      }
-    }
-
-    lines.push('');
-    lines.push('Agente: Dilan Buitrago | Windmar Home Puerto Rico');
-
-    try {
-      await navigator.clipboard.writeText(lines.join('\n'));
-      showToast('Cotización copiada');
-    } catch (e) {
-      showToast('Error al copiar', true);
-    }
-  };
-
-  const handleWhatsApp = () => {
-    if (cart.length === 0) return;
-
-    const isSynch = mode === 'synchrony';
-    const roInst  = cart.find(i => i.product.id === 'trat-ro')?.installments ?? 18;
-
-    const total = cart.reduce((s, c) => s + getCartItemPrice(c, mode) * c.quantity, 0);
-
-    const hasRO = cart.some(item => item.product.id === 'trat-ro');
-    const hasOther = cart.some(item => item.product.id !== 'trat-ro');
-    const applyRODiscount = hasRO && hasOther;
-
-    const discountFor = (flat: number) => isSynch ? flat / (cart[0]?.installments ?? 18) : flat;
-    const roDiscountFor = (flat: number) => isSynch ? flat / roInst : flat;
-
-    const finalTotal = total
-      - (hasBonus ? discountFor(500) : 0)
-      - (applyRODiscount ? roDiscountFor(1000) : 0)
-      - (isSynch ? downPayment / (cart[0]?.installments ?? 18) : downPayment);
-
-    const itemsText = cart.map(c => {
-      const price = getCartItemPrice(c, mode);
-      return `• ${c.product.name} ×${c.quantity}: ${fmt.format(price * c.quantity)}${isSynch ? ` (${c.installments} meses)` : ''}`;
-    }).join('\n');
-
-    let msg = `🌊 *COTIZADOR WATER PRO*\nModo: ${MODE_LABELS[mode]}\n`
-      + (hasBonus ? '☀️💧 *Bundle Solar + Agua (Firma y Gana): -$500.00 aplicado*\n' : '')
-      + (applyRODiscount ? '💧 *Bundle Reverse Osmosis: -$1,000.00 aplicado*\n' : '')
-      + (downPayment > 0 ? `💰 *Pronto (Down Payment): -${fmt.format(downPayment)} aplicado*\n` : '')
-      + `\n${itemsText}\n\n*${isSynch ? 'TOTAL MENSUAL' : 'TOTAL'}: ${fmt.format(finalTotal)}*`;
-
-    if (isSynch) {
-      const totalFinanciado = cart.reduce((s, c) => s + (c.product.prices.synchrony || 0) * c.quantity, 0)
-        - (hasBonus ? 500 : 0) - (applyRODiscount ? 1000 : 0) - downPayment;
-      msg += `\n*Total Financiado: ${fmt.format(totalFinanciado)}*`;
-    }
-
-    msg += `\n\nAgente: Windmar Home PR`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-  };
 
   const hasRO = cart.some(item => item.product.id === 'trat-ro');
   const hasOtherForPDF = cart.some(item => item.product.id !== 'trat-ro');
@@ -268,13 +130,44 @@ export default function App() {
     }
   };
 
+  const cartSubtotalCash = cart.reduce(
+    (s, c) => s + (c.product.prices.cash ?? 0) * c.quantity, 0,
+  );
+
+  const resumenParaModal: Record<string, string> = {
+    [idiomaPDF === 'en' ? 'Items in cart' : 'Productos en carrito']:
+      String(cart.reduce((s, c) => s + c.quantity, 0)),
+    [idiomaPDF === 'en' ? 'Subtotal (cash)' : 'Subtotal (cash)']: fmt.format(cartSubtotalCash),
+    [idiomaPDF === 'en' ? 'Active mode' : 'Modo activo']: MODE_LABELS[mode] || mode,
+    ...(hasBonus
+      ? { [idiomaPDF === 'en' ? 'Solar Bundle' : 'Solar Bundle']: '−$500.00' }
+      : {}),
+    ...(hasROAndOther
+      ? { [idiomaPDF === 'en' ? 'RO Bundle' : 'Combo RO']: '−$1,000.00' }
+      : {}),
+    ...(downPayment > 0
+      ? { [idiomaPDF === 'en' ? 'Down Payment' : 'Pronto']: `−${fmt.format(downPayment)}` }
+      : {}),
+  };
+
   return (
-    <div className="min-h-screen bg-[#F0F4FA] text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900">
-      <CotizacionModal
+    <div className="min-h-screen bg-[#F0F4FA] dark:bg-[#0f1215] text-slate-900 dark:text-[#e8eaed] font-sans selection:bg-blue-100 selection:text-blue-900">
+      <PDFModal
         isOpen={showPDFModal}
         isGenerating={isGeneratingPDF}
         onClose={() => setShowPDFModal(false)}
         onGenerate={handlePDFGenerate}
+        initialMode={mode}
+        initialSyncTerm={syncTerm}
+        resumen={resumenParaModal}
+        idioma={idiomaPDF}
+        onIdiomaChange={setIdiomaPDF}
+        hasSolarBundle={hasBonus}
+        onHasSolarBundleChange={setHasBonus}
+        hasROAndOther={hasROAndOther}
+        promoMadres={promoMadres}
+        onPromoMadresChange={setPromoMadres}
+        downPayment={downPayment}
       />
       <AnimatePresence>
         {isSplashVisible && (
@@ -328,7 +221,7 @@ export default function App() {
                   }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                   className="w-80 h-80 object-contain drop-shadow-2xl" 
-                  src="https://i.postimg.cc/6T5J2v2G/Thumbnail.png" 
+                  src="https://i.postimg.cc/PqD3CmtW/WIndmar-water.png" 
                   alt="WindMar Logo" 
                   referrerPolicy="no-referrer" 
                 />
@@ -417,103 +310,58 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-[1360px] mx-auto px-5 pb-20">
-        <Header mode={mode} setMode={setMode} />
+      <div className="min-h-screen p-3 sm:p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <Header isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6 items-start">
-          <main>
-            <div className="relative mb-4 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px] group-focus-within:text-blue-500 transition-colors" />
-              <input 
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full py-4 pl-11 pr-12 bg-white border-2 border-slate-100 rounded-2xl text-[15px] outline-none shadow-sm focus:border-blue-500/50 focus:bg-blue-50/10 transition-all placeholder:text-slate-400 font-medium"
-                placeholder="Busca cualquier palabra (ej: 'filtro 3 personas' o 'cisterna 600')…" 
-              />
-              {search && (
-                <button 
-                  onClick={() => setSearch('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-2 flex-wrap mb-5">
-              {(['all', 'Calentadores', 'Cisternas', 'Sistemas de tratamiento'] as const).map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setFilterCat(cat)}
-                  className={`px-3.5 py-1.5 rounded-full border text-xs font-bold transition-all ${
-                    filterCat === cat 
-                      ? 'bg-blue-600 text-white border-blue-600' 
-                      : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'
-                  }`}
-                >
-                  {cat === 'all' ? 'Todos' : cat === 'Calentadores' ? '🌡 Calentadores' : cat === 'Cisternas' ? '🏺 Cisternas' : '🔬 Tratamiento'}
-                </button>
-              ))}
-            </div>
-
-            <div className="text-xs text-slate-400 mb-4">
-              {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} encontrado{filteredProducts.length !== 1 ? 's' : ''}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredProducts.length === 0 ? (
-                <div className="col-span-full text-center py-16 px-5 bg-white border-2 border-dashed border-slate-100 rounded-[22px]">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="w-8 h-8 text-slate-300" />
-                  </div>
-                  <h3 className="text-slate-900 font-bold mb-1">No encontramos lo que buscas</h3>
-                  <p className="text-sm text-slate-500 mb-6 max-w-[280px] mx-auto">Prueba con palabras más generales o revisa otra categoría.</p>
-                  <button 
-                    onClick={() => { setSearch(''); setFilterCat('all'); }}
-                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95"
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
+            <main className="space-y-4">
+              <div className="flex gap-2 flex-wrap">
+                {(['all', 'Calentadores', 'Cisternas', 'Sistemas de tratamiento'] as const).map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setFilterCat(cat)}
+                    className={`px-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
+                      filterCat === cat
+                        ? 'bg-windmar-blue text-white border-windmar-blue shadow-md shadow-windmar-blue/25'
+                        : 'bg-white dark:bg-[#161b22] border-windmar-blue-light/40 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:border-windmar-blue/40 hover:text-windmar-blue'
+                    }`}
                   >
-                    Ver todos los productos
+                    {cat === 'all' ? 'Todos' : cat === 'Calentadores' ? '🌡 Calentadores' : cat === 'Cisternas' ? '🏺 Cisternas' : '🔬 Tratamiento'}
                   </button>
-                </div>
-              ) : (
-                filteredProducts.map(product => (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product} 
-                    mode={mode} 
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                {filteredProducts.map(product => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
                     onAddToCart={handleAddToCart}
-                    isInCart={cart.some(item => item.product.id === product.id)}
                   />
-                ))
-              )}
-            </div>
-          </main>
+                ))}
+              </div>
+            </main>
 
-          <aside>
-            <Cart 
-              items={cart} 
-              mode={mode} 
-              hasBonus={hasBonus}
-              downPayment={downPayment}
-              onToggleBonus={() => setHasBonus(!hasBonus)}
-              onUpdateDownPayment={setDownPayment}
-              onUpdateQty={handleUpdateQty}
-              onUpdateInstallments={handleUpdateInstallments}
-              onRemoveItem={handleRemoveItem}
-              onClear={handleClearCart}
-              onCopy={handleCopyQuote}
-              onWhatsApp={handleWhatsApp}
-              onPDF={() => setShowPDFModal(true)}
-            />
-          </aside>
-        </div>
-
-        <footer className="text-center pt-10 text-slate-400">
-          <div className="text-[11px] uppercase tracking-[0.15em] text-blue-500 mb-4">Herramienta de Apoyo para Ventas · Windmar Home Puerto Rico</div>
-          <div className="text-[11px] leading-relaxed max-w-[520px] mx-auto mb-4">
-            © 2026 Windmar Home. Todos los derechos reservados. Los precios mostrados son referenciales y pueden variar según la configuración final del sistema y promociones vigentes.
+            <aside className="lg:sticky lg:top-4">
+              <Cart
+                items={cart}
+                mode={mode}
+                setMode={setMode}
+                syncTerm={syncTerm}
+                setSyncTerm={setSyncTerm}
+                downPayment={downPayment}
+                setDownPayment={setDownPayment}
+                onUpdateQty={handleUpdateQty}
+                onRemoveItem={handleRemoveItem}
+                onClear={handleClearCart}
+                onPDF={() => setShowPDFModal(true)}
+              />
+            </aside>
           </div>
-        </footer>
+
+          <Footer />
+        </div>
       </div>
 
       <AnimatePresence>
