@@ -253,23 +253,6 @@ const ModeSection: React.FC<ModeSectionProps> = ({
     return { item, unitPrice, lineTotal };
   });
 
-  // IVU breakdown — solo para modos no-mensuales
-  let sinIvu = 0;
-  let ivu    = 0;
-  if (!col.isMonthly) {
-    items.forEach(item => {
-      if (col.getPrice(item) == null) return;
-      if (col.key === 'kiwi') {
-        sinIvu += (item.product.synchronySinIvu ?? 0) * item.quantity;
-        ivu    += (item.product.ivu               ?? 0) * item.quantity;
-      } else {
-        // cash / oriental
-        sinIvu += (item.product.cashSinIvu ?? 0) * item.quantity;
-        ivu    += (item.product.ivuCash    ?? 0) * item.quantity;
-      }
-    });
-  }
-
   // Descuentos aplicables a esta sección
   const inst = col.installments ?? 18;
   const div = col.isMonthly ? inst : 1;
@@ -292,9 +275,13 @@ const ModeSection: React.FC<ModeSectionProps> = ({
     });
   }
   if (promoMadres) {
+    // Comunicado oficial: $500 SIN IVU. En PR el descuento aplica pre-tax,
+    // así que el valor real con IVU = $500 × 1.115 = $557.50.
+    // Esto hace que el total post-descuento cuadre con la hoja PROMO MAYO del Excel.
+    const madresConIvu = MADRES_DISCOUNT_WATER * 1.115;
     discounts.push({
       lbl: idioma === 'en' ? "Mother's 2026" : 'Promo Madres 2026',
-      val: MADRES_DISCOUNT_WATER / div,
+      val: madresConIvu / div,
     });
   }
   if (downPayment > 0) {
@@ -306,6 +293,16 @@ const ModeSection: React.FC<ModeSectionProps> = ({
 
   const totalDiscounts = discounts.reduce((s, d) => s + d.val, 0);
   const totalFinal     = Math.max(0, subtotal - totalDiscounts);
+
+  /**
+   * IVU breakdown — RECOMPUTADO sobre el total final (post-descuentos)
+   * para que los números siempre cuadren: sinIVU + IVU = totalFinal.
+   * IVU PR = 11.5%, así que: sinIVU = total / 1.115, IVU = total - sinIVU.
+   * Solo aplica a modos no-mensuales (cash / oriental / kiwi).
+   */
+  const IVU_RATE = 0.115;
+  const sinIvu = !col.isMonthly ? totalFinal / (1 + IVU_RATE) : 0;
+  const ivu    = !col.isMonthly ? totalFinal - sinIvu          : 0;
 
   return (
     <View style={s.section} wrap={false}>
@@ -346,21 +343,7 @@ const ModeSection: React.FC<ModeSectionProps> = ({
         </View>
       ))}
 
-      {/* IVU breakdown (solo cash/oriental/kiwi) */}
-      {!col.isMonthly && (sinIvu > 0 || ivu > 0) && (
-        <View style={s.sectionDiscounts}>
-          <View style={s.ivuLine}>
-            <Text style={s.ivuLbl}>{t('Subtotal sin IVU', 'Subtotal (no tax)', idioma)}</Text>
-            <Text style={s.ivuVal}>{fmt(sinIvu)}</Text>
-          </View>
-          <View style={s.ivuLine}>
-            <Text style={s.ivuLbl}>{t('IVU 11.5%', 'Tax 11.5%', idioma)}</Text>
-            <Text style={s.ivuVal}>{fmt(ivu)}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Descuentos */}
+      {/* Descuentos — primero, para que el IVU se recalcule sobre el monto final */}
       {discounts.length > 0 && (
         <View style={s.sectionDiscounts}>
           {discounts.map((d, i) => (
@@ -374,12 +357,26 @@ const ModeSection: React.FC<ModeSectionProps> = ({
         </View>
       )}
 
+      {/* IVU breakdown (solo cash/oriental/kiwi) — recalculado sobre el total final */}
+      {!col.isMonthly && totalFinal > 0 && (
+        <View style={s.sectionDiscounts}>
+          <View style={s.ivuLine}>
+            <Text style={s.ivuLbl}>{t('Subtotal sin IVU', 'Subtotal (no tax)', idioma)}</Text>
+            <Text style={s.ivuVal}>{fmt(sinIvu)}</Text>
+          </View>
+          <View style={s.ivuLine}>
+            <Text style={s.ivuLbl}>{t('IVU 11.5%', 'Tax 11.5%', idioma)}</Text>
+            <Text style={s.ivuVal}>{fmt(ivu)}</Text>
+          </View>
+        </View>
+      )}
+
       {/* Section total */}
       <View style={[s.sectionTotal, { backgroundColor: col.lightBg }]}>
         <Text style={s.sectionTotalLbl}>
           {col.isMonthly
             ? t(`Total ${col.installments}m`, `Total ${col.installments}m`, idioma)
-            : t('Total con descuentos', 'Total with discounts', idioma)}
+            : t('Total con IVU', 'Total with tax', idioma)}
         </Text>
         <Text style={[s.sectionTotalVal, { color: col.color }]}>
           {fmt(totalFinal)}{col.isMonthly && t('/mes', '/mo', idioma)}
