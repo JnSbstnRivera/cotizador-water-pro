@@ -275,9 +275,13 @@ const ModeSection: React.FC<ModeSectionProps> = ({
     });
   }
   if (promoMadres) {
+    // Comunicado oficial: $500 SIN IVU. En PR el descuento aplica pre-tax,
+    // así que el valor real con IVU = $500 × 1.115 = $557.50.
+    // Esto hace que el total post-descuento cuadre con la hoja PROMO MAYO del Excel.
+    const madresConIvu = MADRES_DISCOUNT_WATER * 1.115;
     discounts.push({
       lbl: idioma === 'en' ? "Mother's 2026" : 'Promo Madres 2026',
-      val: MADRES_DISCOUNT_WATER / div,
+      val: madresConIvu / div,
     });
   }
   if (downPayment > 0) {
