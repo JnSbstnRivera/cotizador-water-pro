@@ -257,11 +257,17 @@ const ModeSection: React.FC<ModeSectionProps> = ({
   const inst = col.installments ?? 18;
   const div = col.isMonthly ? inst : 1;
 
-  const discounts: { lbl: string; val: number }[] = [];
+  /**
+   * Descuentos pre-IVU: Solar Bundle, RO Bundle, Promo Madres.
+   * Se aplican a la base SIN IVU; luego se re-agrega IVU sobre el monto reducido.
+   * Esto hace que el cliente vea el valor pre-IVU ($500, $1000) y la IVU recalculada
+   * automáticamente refleja el ahorro adicional ($X × 11.5%) sin mostrarlo como línea aparte.
+   */
+  const preIvuDiscounts: { lbl: string; val: number }[] = [];
 
   if (hasSolarBundle) {
-    discounts.push({
-      lbl: idioma === 'en' ? 'Solar Bundle' : 'Solar Bundle',
+    preIvuDiscounts.push({
+      lbl: idioma === 'en' ? 'Solar Bundle (pre-tax)' : 'Solar Bundle (sin IVU)',
       val: 500 / div,
     });
   }
@@ -269,38 +275,60 @@ const ModeSection: React.FC<ModeSectionProps> = ({
   const roItem = items.find(i => i.product.id === 'trat-ro');
   const roHasPrice = roItem != null && col.getPrice(roItem) != null;
   if (hasROBundle && roHasPrice) {
-    discounts.push({
-      lbl: idioma === 'en' ? 'RO Bundle' : 'Combo RO',
+    preIvuDiscounts.push({
+      lbl: idioma === 'en' ? 'RO Bundle (pre-tax)' : 'Combo RO (sin IVU)',
       val: 1000 / div,
     });
   }
   if (promoMadres) {
-    // Comunicado oficial: $500 SIN IVU. En PR el descuento aplica pre-tax,
-    // así que el valor real con IVU = $500 × 1.115 = $557.50.
-    // Esto hace que el total post-descuento cuadre con la hoja PROMO MAYO del Excel.
-    const madresConIvu = MADRES_DISCOUNT_WATER * 1.115;
-    discounts.push({
-      lbl: idioma === 'en' ? "Mother's 2026" : 'Promo Madres 2026',
-      val: madresConIvu / div,
+    // Comunicado oficial: $500 SIN IVU. Se aplica pre-tax: cliente ve −$500
+    // y el ahorro real (incluyendo IVU 11.5%) se refleja automáticamente en el total.
+    preIvuDiscounts.push({
+      lbl: idioma === 'en' ? "Mother's 2026 (pre-tax)" : 'Promo Madres 2026 (sin IVU)',
+      val: MADRES_DISCOUNT_WATER / div,
     });
   }
+
+  // Pronto pago = pago en efectivo POST-IVU (no aplica el ahorro de IVU)
+  const postIvuDiscounts: { lbl: string; val: number }[] = [];
   if (downPayment > 0) {
-    discounts.push({
+    postIvuDiscounts.push({
       lbl: idioma === 'en' ? 'Down Payment' : 'Pronto pago',
       val: downPayment / div,
     });
   }
 
-  const totalDiscounts = discounts.reduce((s, d) => s + d.val, 0);
-  const totalFinal     = Math.max(0, subtotal - totalDiscounts);
+  const totalPreIvuDisc  = preIvuDiscounts.reduce((s, d) => s + d.val, 0);
+  const totalPostIvuDisc = postIvuDiscounts.reduce((s, d) => s + d.val, 0);
+
+  const IVU_RATE = 0.115;
 
   /**
-   * IVU breakdown — RECOMPUTADO sobre el total final (post-descuentos)
+   * Cálculo del total:
+   * - Modos no-mensuales (cash/oriental/kiwi): subtotal INCLUYE IVU.
+   *   Descuentos pre-IVU se aplican a la base sin IVU, luego se re-agrega IVU.
+   *   Down payment se resta del total con IVU.
+   * - Modos mensuales (sync 18/61): cuota incluye IVU baked in.
+   *   Descuentos pre-IVU se prorratean directamente sobre la cuota (sin recalc IVU).
+   */
+  let totalFinal: number;
+  if (col.isMonthly) {
+    totalFinal = Math.max(0, subtotal - totalPreIvuDisc - totalPostIvuDisc);
+  } else {
+    const subtotalSinIvu = subtotal / (1 + IVU_RATE);
+    const finalSinIvu    = Math.max(0, subtotalSinIvu - totalPreIvuDisc);
+    const withIvu        = finalSinIvu * (1 + IVU_RATE);
+    totalFinal           = Math.max(0, withIvu - totalPostIvuDisc);
+  }
+
+  // Lista unificada de descuentos para renderizar (pre-IVU primero, luego pronto pago)
+  const discounts = [...preIvuDiscounts, ...postIvuDiscounts];
+
+  /**
+   * IVU breakdown — RECOMPUTADO sobre el total final (post-todos los descuentos)
    * para que los números siempre cuadren: sinIVU + IVU = totalFinal.
-   * IVU PR = 11.5%, así que: sinIVU = total / 1.115, IVU = total - sinIVU.
    * Solo aplica a modos no-mensuales (cash / oriental / kiwi).
    */
-  const IVU_RATE = 0.115;
   const sinIvu = !col.isMonthly ? totalFinal / (1 + IVU_RATE) : 0;
   const ivu    = !col.isMonthly ? totalFinal - sinIvu          : 0;
 
