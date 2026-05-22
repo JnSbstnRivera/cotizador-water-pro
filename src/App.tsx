@@ -163,7 +163,7 @@ export default function App() {
       ? { [idiomaPDF === 'en' ? 'RO Bundle' : 'Combo RO']: '−$1,000.00' }
       : {}),
     ...(ivuExemptActive && ivuExemptSavings > 0
-      ? { [idiomaPDF === 'en' ? 'IVU exempt CC 26-08' : 'IVU exento CC 26-08']: `−${fmt.format(ivuExemptSavings)}` }
+      ? { [idiomaPDF === 'en' ? 'IVU exempt' : 'IVU exento']: `−${fmt.format(ivuExemptSavings)}` }
       : {}),
     ...(downPayment > 0
       ? { [idiomaPDF === 'en' ? 'Down Payment' : 'Pronto']: `−${fmt.format(downPayment)}` }

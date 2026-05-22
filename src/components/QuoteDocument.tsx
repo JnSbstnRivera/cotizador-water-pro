@@ -464,7 +464,7 @@ const ModeSection: React.FC<ModeSectionProps> = ({
   const sinIvu = !col.isMonthly ? finalSinIvuTotal : 0;
   const ivu    = !col.isMonthly ? finalIvuTotal    : 0;
   const ivuLabel = hasCC2608Item
-    ? (idioma === 'en' ? 'IVU 11.5% (only on installation · CC 26-08)' : 'IVU 11.5% (solo sobre instalación · CC 26-08)')
+    ? (idioma === 'en' ? 'IVU 11.5% (only on installation)' : 'IVU 11.5% (solo sobre instalación)')
     : (idioma === 'en' ? 'Tax 11.5%' : 'IVU 11.5%');
 
   return (
