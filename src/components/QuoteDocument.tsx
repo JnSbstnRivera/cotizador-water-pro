@@ -525,51 +525,13 @@ const ModeSection: React.FC<ModeSectionProps> = ({
                       </Text>
                     </View>
                   )}
-                  {/* Desglose CC 26-08 estilo Excel (Costo Regular / Producto / Instalación / IVU / Total) */}
-                  {eligibleCC2608 && !col.isMonthly && (
-                    <View style={{ marginTop: 3 }}>
-                      <View style={s.cc2608Table}>
-                        <View style={s.cc2608Row}>
-                          <Text style={s.cc2608RowLbl}>
-                            {t('Costo Regular', 'Regular Cost', idioma)}
-                          </Text>
-                          <Text style={s.cc2608RowValStrike}>{fmt(baseSinIvuLine)}</Text>
-                        </View>
-                        <View style={s.cc2608Row}>
-                          <Text style={s.cc2608RowLbl}>
-                            {t('Producto con Descuento IVU', 'Product (IVU discount)', idioma)}
-                            {`  (${(100 * (1 - ivuMult)).toFixed(0)}%)`}
-                          </Text>
-                          <Text style={s.cc2608RowVal}>{fmt(cc2608Producto)}</Text>
-                        </View>
-                        <View style={s.cc2608Row}>
-                          <Text style={s.cc2608RowLbl}>
-                            {t('Costo Instalación', 'Installation Cost', idioma)}
-                            {`  (${(100 * ivuMult).toFixed(0)}%)`}
-                          </Text>
-                          <Text style={s.cc2608RowVal}>{fmt(cc2608Instal)}</Text>
-                        </View>
-                        <View style={s.cc2608Row}>
-                          <Text style={s.cc2608RowLbl}>
-                            {t('IVU 11.5% sobre Instalación', 'IVU 11.5% on Installation', idioma)}
-                          </Text>
-                          <Text style={s.cc2608RowVal}>{fmt(cc2608Ivu)}</Text>
-                        </View>
-                        <View style={s.cc2608RowLast}>
-                          <Text style={s.cc2608RowTotalLbl}>
-                            {t('Costo Total', 'Total Cost', idioma)}
-                          </Text>
-                          <Text style={s.cc2608RowTotalVal}>{fmt(displayLineTotal)}</Text>
-                        </View>
-                      </View>
-                      {cc2608Savings > 0.01 && (
-                        <View style={s.savingsLine}>
-                          <Text style={s.savingsLbl}>
-                            {t('Ahorras vs. IVU regular', 'You save vs. regular IVU', idioma)}
-                          </Text>
-                          <Text style={s.savingsVal}>−{fmt(cc2608Savings)}</Text>
-                        </View>
-                      )}
+                  {/* Solo nota de ahorro vs IVU regular (sin mini-tabla para evitar repetir valores) */}
+                  {eligibleCC2608 && !col.isMonthly && cc2608Savings > 0.01 && (
+                    <View style={s.savingsLine}>
+                      <Text style={s.savingsLbl}>
+                        {t('Ahorras vs. IVU regular', 'You save vs. regular IVU', idioma)}
+                      </Text>
+                      <Text style={s.savingsVal}>−{fmt(cc2608Savings)}</Text>
                     </View>
                   )}
                 </>
