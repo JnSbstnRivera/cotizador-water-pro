@@ -335,11 +335,8 @@ const ModeSection: React.FC<ModeSectionProps> = ({
     let unitBaseSinIvu = 0;
     let ivuMult = 1;
     let eligibleCC2608 = false;
+    let catalogTotalFinPerUnit = 0;
     if (unitPrice != null) {
-      // Preferimos las bases sin-IVU explicitas del producto:
-      // - synchronySinIvu = base catalogo FIN (modos mensuales m18/m61 y kiwi)
-      // - cashSinIvu      = base cash (10% off catalogo, modos cash/oriental)
-      // Fallback: derivar de unitPrice si no estan definidos.
       if (col.isMonthly || col.key === 'kiwi') {
         unitBaseSinIvu = item.product.synchronySinIvu
           ?? ((col.isMonthly ? unitPrice * inst : unitPrice) / (1 + IVU_RATE));
@@ -347,14 +344,31 @@ const ModeSection: React.FC<ModeSectionProps> = ({
         unitBaseSinIvu = item.product.cashSinIvu ?? (unitPrice / (1 + IVU_RATE));
       }
       baseSinIvuLine = unitBaseSinIvu * item.quantity;
+      // Total con IVU del catalogo FIN per unit (referencia para preservar el factor de
+      // interes en Synchrony m18/m61: la mensualidad de catalogo / catalog_total_fin es
+      // la razon implicita; aplicandola al new_total_CC obtenemos new_monthly correcto).
+      catalogTotalFinPerUnit = (item.product.synchronySinIvu ?? unitBaseSinIvu) * (1 + IVU_RATE);
       if (ivuExemptCC2608 && item.product.installPercent !== undefined) {
         ivuMult = item.product.installPercent;
         eligibleCC2608 = true;
       }
     }
-    // Total efectivo por unidad (con IVU ajustado según CC 26-08)
     const effectiveUnitTotal = unitBaseSinIvu * (1 + ivuMult * IVU_RATE);
     const effectiveLineTotal = effectiveUnitTotal * item.quantity;
+
+    // Mensualidad efectiva por unidad (solo modos monthly).
+    // Para CC 26-08: catalogMonthly * (effectiveUnitTotal / catalogTotalFinPerUnit) -> ceil al $
+    // Para non-CC: la mensualidad de catalogo (no cambia)
+    let effectiveMonthlyPerUnit = 0;
+    if (col.isMonthly && unitPrice != null) {
+      if (eligibleCC2608 && catalogTotalFinPerUnit > 0) {
+        const rawMonthly = unitPrice * (effectiveUnitTotal / catalogTotalFinPerUnit);
+        effectiveMonthlyPerUnit = Math.ceil(rawMonthly);
+      } else {
+        effectiveMonthlyPerUnit = unitPrice;
+      }
+    }
+
     return {
       item,
       unitPrice,
@@ -365,6 +379,8 @@ const ModeSection: React.FC<ModeSectionProps> = ({
       eligibleCC2608,
       effectiveUnitTotal,
       effectiveLineTotal,
+      catalogTotalFinPerUnit,
+      effectiveMonthlyPerUnit,
     };
   });
 
@@ -411,11 +427,23 @@ const ModeSection: React.FC<ModeSectionProps> = ({
     finalIvuTotal += itemIvu;
   }
 
+  // Para modos monthly: sumar las mensualidades efectivas por unidad x cantidad.
+  // Las cisternas CC 26-08 usan formula con factor de interes preservado + ceil al $.
+  // Items no-elegibles usan la mensualidad de catalogo (mismo comportamiento previo).
+  let totalMonthlyPreDownPayment = 0;
+  if (col.isMonthly) {
+    for (const r of rows) {
+      totalMonthlyPreDownPayment += r.effectiveMonthlyPerUnit * r.item.quantity;
+    }
+  }
+
   // Post-IVU: down payment
   let totalFinal: number;
   if (col.isMonthly) {
-    const monthlyEquiv = totalWithIvuPreDownPayment / inst;
-    totalFinal = Math.max(0, monthlyEquiv - (downPayment / inst));
+    totalFinal = Math.max(
+      0,
+      totalMonthlyPreDownPayment - (totalPreIvuDiscFull / inst) - (downPayment / inst),
+    );
   } else {
     totalFinal = Math.max(0, totalWithIvuPreDownPayment - downPayment);
   }
@@ -452,10 +480,12 @@ const ModeSection: React.FC<ModeSectionProps> = ({
       </View>
 
       {/* Product rows — compactas */}
-      {rows.map(({ item, unitPrice, lineTotalCatalog, baseSinIvuLine, ivuMult, eligibleCC2608, effectiveLineTotal }) => {
+      {rows.map(({ item, unitPrice, lineTotalCatalog, baseSinIvuLine, ivuMult, eligibleCC2608, effectiveLineTotal, effectiveMonthlyPerUnit }) => {
         // Para cisternas con CC 26-08 mostramos el precio AJUSTADO (no el catálogo)
+        // Monthly: usa effectiveMonthlyPerUnit (formula con factor de interes + ceil)
+        // No-monthly: usa effectiveLineTotal (total con IVU recalculado por split)
         const displayLineTotal = eligibleCC2608
-          ? (col.isMonthly ? effectiveLineTotal / inst : effectiveLineTotal)
+          ? (col.isMonthly ? effectiveMonthlyPerUnit * item.quantity : effectiveLineTotal)
           : lineTotalCatalog;
         const displayUnitPrice = item.quantity > 0 ? displayLineTotal / item.quantity : displayLineTotal;
         const cc2608Producto = eligibleCC2608 ? baseSinIvuLine * (1 - ivuMult) : 0;
@@ -484,6 +514,17 @@ const ModeSection: React.FC<ModeSectionProps> = ({
                       {item.quantity > 1 && ` (${fmt(displayUnitPrice)}${col.isMonthly ? '/mes' : ''} c/u)`}
                     </Text>
                   </Text>
+                  {/* Para modos monthly: mini-nota con el ahorro per-mes */}
+                  {eligibleCC2608 && col.isMonthly && unitPrice != null && unitPrice > effectiveMonthlyPerUnit && (
+                    <View style={s.savingsLine}>
+                      <Text style={s.savingsLbl}>
+                        {t('Ahorras vs. IVU regular', 'You save vs. regular IVU', idioma)}
+                      </Text>
+                      <Text style={s.savingsVal}>
+                        −{fmt((unitPrice - effectiveMonthlyPerUnit) * item.quantity)}{t('/mes', '/mo', idioma)}
+                      </Text>
+                    </View>
+                  )}
                   {/* Desglose CC 26-08 estilo Excel (Costo Regular / Producto / Instalación / IVU / Total) */}
                   {eligibleCC2608 && !col.isMonthly && (
                     <View style={{ marginTop: 3 }}>
