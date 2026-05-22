@@ -630,11 +630,11 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
         {cc2608Active && (
           <View style={s.cc2608Banner} wrap={false}>
             <Text style={s.cc2608Title}>
-              🌀 {t(
-                'PERÍODO LIBRE DE IVU · CC 26-08',
-                'IVU-FREE PERIOD · CC 26-08',
+              {t(
+                '« PERÍODO LIBRE DE IVU · CC 26-08 »',
+                '« IVU-FREE PERIOD · CC 26-08 »',
                 idioma,
-              )} 🌀
+              )}
             </Text>
             <Text style={s.cc2608Sub}>
               {t(
