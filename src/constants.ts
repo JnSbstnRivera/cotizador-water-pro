@@ -84,44 +84,47 @@ export const PRODUCTS: Product[] = [
     ivuCash: 702.77,
     imageScale: 1.1
   },
-  { 
-    id: 'cis-eco-500', 
-    category: 'Cisternas', 
-    name: 'Eco 500 Gal', 
-    personas: null, 
-    description: 'Reserva confiable para emergencias o cortes de servicio. Instalación compacta.', 
-    imageUrl: 'https://i.postimg.cc/wBFVhq51/Eco-500-Gal.png', 
+  {
+    id: 'cis-eco-500',
+    category: 'Cisternas',
+    name: 'Eco 500 Gal',
+    personas: null,
+    description: 'Reserva confiable para emergencias o cortes de servicio. Instalación compacta.',
+    imageUrl: 'https://i.postimg.cc/wBFVhq51/Eco-500-Gal.png',
     prices: { cash: 4606.07, synchrony: 5117.85, m18: 284.33, m61: 102.36 },
     synchronySinIvu: 4590.00,
-    ivu: 527.85, 
-    cashSinIvu: 4131.00, 
-    ivuCash: 475.07 
+    ivu: 527.85,
+    cashSinIvu: 4131.00,
+    ivuCash: 475.07,
+    installPercent: 0.15
   },
-  { 
-    id: 'cis-herc-600', 
-    category: 'Cisternas', 
-    name: 'Herc 600 Gal', 
-    personas: null, 
-    description: 'Construcción reforzada para mayor durabilidad y capacidad. Material de alta resistencia UV.', 
-    imageUrl: 'https://i.postimg.cc/4380XbSb/Herc-600-Gal.png', 
+  {
+    id: 'cis-herc-600',
+    category: 'Cisternas',
+    name: 'Herc 600 Gal',
+    personas: null,
+    description: 'Construcción reforzada para mayor durabilidad y capacidad. Material de alta resistencia UV.',
+    imageUrl: 'https://i.postimg.cc/4380XbSb/Herc-600-Gal.png',
     prices: { cash: 4606.07, synchrony: 5117.85, m18: 284.33, m61: 102.36 },
     synchronySinIvu: 4590.00,
-    ivu: 527.85, 
-    cashSinIvu: 4131.00, 
-    ivuCash: 475.07 
+    ivu: 527.85,
+    cashSinIvu: 4131.00,
+    ivuCash: 475.07,
+    installPercent: 0.15
   },
-  { 
-    id: 'cis-eco-150', 
-    category: 'Cisternas', 
-    name: 'Eco 150 Gal', 
-    personas: null, 
-    description: 'Solución compacta y eficiente para almacenamiento de agua en espacios reducidos. Ideal para apartamentos.', 
-    imageUrl: 'https://i.postimg.cc/jtfCZBYW/Tanque.png', 
-    prices: { cash: 2900.12, synchrony: 3222.35, m18: 179.02, m61: 64.45 }, 
-    synchronySinIvu: 2890.00, 
-    ivu: 332.35, 
-    cashSinIvu: 2601.00, 
-    ivuCash: 299.12 
+  {
+    id: 'cis-eco-150',
+    category: 'Cisternas',
+    name: 'Eco 150 Gal',
+    personas: null,
+    description: 'Solución compacta y eficiente para almacenamiento de agua en espacios reducidos. Ideal para apartamentos.',
+    imageUrl: 'https://i.postimg.cc/jtfCZBYW/Tanque.png',
+    prices: { cash: 2900.12, synchrony: 3222.35, m18: 179.02, m61: 64.45 },
+    synchronySinIvu: 2890.00,
+    ivu: 332.35,
+    cashSinIvu: 2601.00,
+    ivuCash: 299.12,
+    installPercent: 0.20
   }
 ];
 

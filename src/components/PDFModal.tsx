@@ -40,6 +40,11 @@ interface PDFModalProps {
   onPromoMadresChange: (v: boolean) => void;
   /** Pronto pago — controlado desde el Cart, solo para mostrar en el resumen */
   downPayment: number;
+  /** Período libre de IVU CC 26-08 — split Producto/Instalación sobre cisternas */
+  ivuExemptCC2608: boolean;
+  onIvuExemptCC2608Change: (v: boolean) => void;
+  /** Si hay al menos una cisterna en el carrito (habilita el toggle CC 26-08) */
+  hasCisternasInCart: boolean;
 }
 
 // ─── helper de campo ────────────────────────────────────────────────────────
@@ -91,6 +96,7 @@ export function PDFModal({
   hasROAndOther,
   promoMadres, onPromoMadresChange,
   downPayment,
+  ivuExemptCC2608, onIvuExemptCC2608Change, hasCisternasInCart,
 }: PDFModalProps) {
 
   const [cliente, setCliente] = useState<ClienteForm>({
@@ -361,6 +367,11 @@ export function PDFModal({
                     💧 RO
                   </span>
                 )}
+                {ivuExemptCC2608 && hasCisternasInCart && (
+                  <span style={{ background: '#0ea5e9', color: 'white', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                    🌀 CC 26-08
+                  </span>
+                )}
                 {promoMadres && madresApply && (
                   <span style={{ background: '#E84F97', color: 'white', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
                     ❤ Madres
@@ -402,6 +413,62 @@ export function PDFModal({
                     </div>
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 800, color: hasSolarBundle ? '#10b981' : '#94a3b8' }}>−$500</span>
+                </label>
+
+                {/* Período libre de IVU CC 26-08 — solo cisternas */}
+                <label style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '10px 12px', borderRadius: 10,
+                  cursor: hasCisternasInCart ? 'pointer' : 'not-allowed',
+                  opacity: hasCisternasInCart ? 1 : 0.55,
+                  background: (ivuExemptCC2608 && hasCisternasInCart) ? '#e0f2fe' : 'white',
+                  border: `2px solid ${(ivuExemptCC2608 && hasCisternasInCart) ? '#0ea5e9' : '#d0d9ef'}`,
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={ivuExemptCC2608 && hasCisternasInCart}
+                    disabled={!hasCisternasInCart}
+                    onChange={e => onIvuExemptCC2608Change(e.target.checked)}
+                    style={{ width: 18, height: 18, accentColor: '#0ea5e9', marginTop: 2 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: 12.5, fontWeight: 800,
+                      color: (ivuExemptCC2608 && hasCisternasInCart) ? '#075985' : '#1a56c4',
+                    }}>
+                      🌀 {idioma === 'en' ? 'IVU-free Period · CC 26-08' : 'Período Libre de IVU · CC 26-08'}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: '#666', marginTop: 2, lineHeight: 1.4 }}>
+                      {idioma === 'en'
+                        ? <>Hurricane-prep IVU exemption (May 22–25, 2026). 11.5% IVU applies <b>only</b> on the installation portion of cisterns.</>
+                        : <>Exención de IVU por preparación de huracanes (22-25 mayo 2026). El 11.5% se aplica <b>solo</b> sobre la porción de instalación de las cisternas.</>}
+                    </div>
+                    {!hasCisternasInCart && (
+                      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, fontStyle: 'italic' }}>
+                        {idioma === 'en'
+                          ? 'Add a cistern to the cart to enable.'
+                          : 'Agrega una cisterna al carrito para habilitar.'}
+                      </div>
+                    )}
+                    {ivuExemptCC2608 && hasCisternasInCart && (
+                      <div style={{
+                        fontSize: 10, color: '#075985', marginTop: 6, padding: 6,
+                        background: '#f0f9ff', borderRadius: 6, border: '1px dashed #7dd3fc',
+                      }}>
+                        ⚠️ {idioma === 'en' ? 'Operational requirements:' : 'Requisitos operativos:'}<br/>
+                        • {idioma === 'en' ? 'Process the sale via VASS' : 'Gestionar la venta a través de VASS'}<br/>
+                        • {idioma === 'en' ? '100% down payment when signing' : 'Pronto del 100% al firmar el Acuerdo'}<br/>
+                        • {idioma === 'en' ? 'Complete documentation within May 22–25' : 'Documentación completa dentro del 22-25 de mayo'}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800,
+                    color: (ivuExemptCC2608 && hasCisternasInCart) ? '#0ea5e9' : '#94a3b8',
+                    textAlign: 'right',
+                  }}>
+                    {idioma === 'en' ? 'IVU split' : 'IVU split'}
+                  </span>
                 </label>
 
                 {/* RO Bundle — informativo (auto) */}

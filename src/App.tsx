@@ -31,6 +31,8 @@ export default function App() {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [idiomaPDF, setIdiomaPDF] = useState<Idioma>('es');
   const [promoMadres, setPromoMadres] = useState(false);
+  // Período libre de IVU (Carta Circular 26-08) — split Producto/Instalación en cisternas
+  const [ivuExemptCC2608, setIvuExemptCC2608] = useState(false);
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
@@ -115,11 +117,14 @@ export default function App() {
   const hasRO = cart.some(item => item.product.id === 'trat-ro');
   const hasOtherForPDF = cart.some(item => item.product.id !== 'trat-ro');
   const hasROAndOther = hasRO && hasOtherForPDF;
+  const hasCisternasInCart = cart.some(item => item.product.installPercent !== undefined);
+  // El toggle CC 26-08 solo tiene efecto si hay cisternas; auto-apaga si se vacía el carrito
+  const ivuExemptActive = ivuExemptCC2608 && hasCisternasInCart;
 
   const handlePDFGenerate = async (formData: CotizacionFormData) => {
     setIsGeneratingPDF(true);
     try {
-      await downloadCotizacionPDF(cart, formData, hasBonus, hasROAndOther, downPayment);
+      await downloadCotizacionPDF(cart, formData, hasBonus, hasROAndOther, downPayment, ivuExemptActive);
       setShowPDFModal(false);
       showToast('PDF descargado correctamente ✓');
     } catch (err) {
@@ -134,6 +139,18 @@ export default function App() {
     (s, c) => s + (c.product.prices.cash ?? 0) * c.quantity, 0,
   );
 
+  // Ahorro estimado IVU CC 26-08 sobre las cisternas (en modo cash)
+  const ivuExemptSavings = ivuExemptActive
+    ? cart.reduce((s, c) => {
+        const ip = c.product.installPercent;
+        const base = c.product.cashSinIvu;
+        if (ip === undefined || base === undefined) return s;
+        // Ahorro = IVU regular - IVU CC 26-08 = base × 11.5% - base × installPercent × 11.5%
+        const ahorro = base * (1 - ip) * 0.115 * c.quantity;
+        return s + ahorro;
+      }, 0)
+    : 0;
+
   const resumenParaModal: Record<string, string> = {
     [idiomaPDF === 'en' ? 'Items in cart' : 'Productos en carrito']:
       String(cart.reduce((s, c) => s + c.quantity, 0)),
@@ -144,6 +161,9 @@ export default function App() {
       : {}),
     ...(hasROAndOther
       ? { [idiomaPDF === 'en' ? 'RO Bundle' : 'Combo RO']: '−$1,000.00' }
+      : {}),
+    ...(ivuExemptActive && ivuExemptSavings > 0
+      ? { [idiomaPDF === 'en' ? 'IVU exempt CC 26-08' : 'IVU exento CC 26-08']: `−${fmt.format(ivuExemptSavings)}` }
       : {}),
     ...(downPayment > 0
       ? { [idiomaPDF === 'en' ? 'Down Payment' : 'Pronto']: `−${fmt.format(downPayment)}` }
@@ -168,6 +188,9 @@ export default function App() {
         promoMadres={promoMadres}
         onPromoMadresChange={setPromoMadres}
         downPayment={downPayment}
+        ivuExemptCC2608={ivuExemptCC2608}
+        onIvuExemptCC2608Change={setIvuExemptCC2608}
+        hasCisternasInCart={hasCisternasInCart}
       />
       <AnimatePresence>
         {isSplashVisible && (

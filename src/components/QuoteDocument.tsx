@@ -202,6 +202,41 @@ const s = StyleSheet.create({
     fontFamily: 'Helvetica', lineHeight: 1.3,
   },
 
+  // CC 26-08 banner (Periodo Libre de IVU)
+  cc2608Banner: {
+    marginHorizontal: 24, marginTop: 10, marginBottom: 4,
+    backgroundColor: '#e0f2fe', borderWidth: 1.5, borderColor: '#0ea5e9',
+    borderRadius: 8, padding: 8,
+    flexDirection: 'column', gap: 3,
+  },
+  cc2608Title: {
+    fontSize: 11, color: '#075985', fontFamily: 'Helvetica-Bold',
+    textAlign: 'center', letterSpacing: 0.5,
+  },
+  cc2608Sub: {
+    fontSize: 7.5, color: '#0c4a6e', textAlign: 'center',
+    fontFamily: 'Helvetica', lineHeight: 1.3,
+  },
+  cc2608Notes: {
+    fontSize: 7, color: '#0c4a6e', fontFamily: 'Helvetica',
+    lineHeight: 1.3, marginTop: 2, textAlign: 'center',
+  },
+
+  // Sub-breakdown line dentro de un producto (Producto/Instalación/IVU)
+  splitLine: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingLeft: 8, paddingRight: 4, marginTop: 1,
+  },
+  splitLbl: { fontSize: 6.8, color: MUTED, fontFamily: 'Helvetica' },
+  splitVal: { fontSize: 6.8, color: TXT, fontFamily: 'Helvetica-Bold' },
+  savingsLine: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingHorizontal: 8, paddingVertical: 3, marginTop: 2,
+    backgroundColor: '#f0fdf4', borderRadius: 4,
+  },
+  savingsLbl: { fontSize: 7.5, color: '#15803d', fontFamily: 'Helvetica-Bold' },
+  savingsVal: { fontSize: 7.5, color: '#15803d', fontFamily: 'Helvetica-Bold' },
+
   // Footer (texto)
   fSite: { color: WHITE, fontFamily: 'Helvetica-Bold', fontSize: 12 },
   fCol: { gap: 2 },
@@ -223,6 +258,8 @@ export interface QuoteDocumentProps {
   effectiveCols: EffectiveCol[];
   idioma: Idioma;
   promoMadres: boolean;
+  /** Período Libre de IVU CC 26-08: split Producto/Instalación en cisternas */
+  ivuExemptCC2608?: boolean;
   /** Kept for API compatibility — not used in section layout */
   primarySyncTerm?: 18 | 61;
 }
@@ -239,57 +276,108 @@ interface ModeSectionProps {
   downPayment: number;
   promoMadres: boolean;
   idioma: Idioma;
+  ivuExemptCC2608: boolean;
 }
 
 const ModeSection: React.FC<ModeSectionProps> = ({
-  col, items, hasSolarBundle, hasROBundle, downPayment, promoMadres, idioma,
+  col, items, hasSolarBundle, hasROBundle, downPayment, promoMadres, idioma, ivuExemptCC2608,
 }) => {
-  // Calculo del subtotal de la sección (suma de price × qty)
-  let subtotal = 0;
-  const rows = items.map(item => {
-    const unitPrice = col.getPrice(item);
-    const lineTotal = (unitPrice ?? 0) * item.quantity;
-    if (unitPrice != null) subtotal += lineTotal;
-    return { item, unitPrice, lineTotal };
-  });
-
-  // Descuentos aplicables a esta sección
+  const IVU_RATE = 0.115;
   const inst = col.installments ?? 18;
   const div = col.isMonthly ? inst : 1;
 
   /**
-   * Descuentos pre-IVU: Solar Bundle, RO Bundle, Promo Madres.
-   * Se aplican a la base SIN IVU; luego se re-agrega IVU sobre el monto reducido.
-   * Esto hace que el cliente vea el valor pre-IVU ($500, $1000) y la IVU recalculada
-   * automáticamente refleja el ahorro adicional ($X × 11.5%) sin mostrarlo como línea aparte.
+   * Por item calculamos:
+   *  - baseSinIvuLine: precio del catálogo SIN IVU multiplicado por quantity
+   *  - ivuMult: 1.0 normal, installPercent si la cisterna aplica CC 26-08
+   *  - eligibleCC2608: si esta linea aplica el split (cisterna con installPercent definido)
    */
-  const preIvuDiscounts: { lbl: string; val: number }[] = [];
+  const rows = items.map(item => {
+    const unitPrice = col.getPrice(item);
+    const lineTotalCatalog = (unitPrice ?? 0) * item.quantity;
+    let baseSinIvuLine = 0;
+    let unitBaseSinIvu = 0;
+    let ivuMult = 1;
+    let eligibleCC2608 = false;
+    if (unitPrice != null) {
+      const totalWithIvu = col.isMonthly ? unitPrice * inst : unitPrice;
+      unitBaseSinIvu = totalWithIvu / (1 + IVU_RATE);
+      baseSinIvuLine = unitBaseSinIvu * item.quantity;
+      if (ivuExemptCC2608 && item.product.installPercent !== undefined) {
+        ivuMult = item.product.installPercent;
+        eligibleCC2608 = true;
+      }
+    }
+    // Total efectivo por unidad (con IVU ajustado según CC 26-08)
+    const effectiveUnitTotal = unitBaseSinIvu * (1 + ivuMult * IVU_RATE);
+    const effectiveLineTotal = effectiveUnitTotal * item.quantity;
+    return {
+      item,
+      unitPrice,
+      lineTotalCatalog,
+      baseSinIvuLine,
+      unitBaseSinIvu,
+      ivuMult,
+      eligibleCC2608,
+      effectiveUnitTotal,
+      effectiveLineTotal,
+    };
+  });
 
+  const subtotalSinIvu = rows.reduce((s, r) => s + r.baseSinIvuLine, 0);
+
+  // Descuentos pre-IVU (siempre en valor FULL, no /div, para math correcta)
+  const preIvuFull: { lbl: string; val: number }[] = [];
   if (hasSolarBundle) {
-    preIvuDiscounts.push({
+    preIvuFull.push({
       lbl: idioma === 'en' ? 'Solar Bundle (pre-tax)' : 'Solar Bundle (sin IVU)',
-      val: 500 / div,
+      val: 500,
     });
   }
-  // RO Bundle: solo si RO tiene precio en este modo (evita dividir por null en sync)
   const roItem = items.find(i => i.product.id === 'trat-ro');
   const roHasPrice = roItem != null && col.getPrice(roItem) != null;
   if (hasROBundle && roHasPrice) {
-    preIvuDiscounts.push({
+    preIvuFull.push({
       lbl: idioma === 'en' ? 'RO Bundle (pre-tax)' : 'Combo RO (sin IVU)',
-      val: 1000 / div,
+      val: 1000,
     });
   }
   if (promoMadres) {
-    // Comunicado oficial: $500 SIN IVU. Se aplica pre-tax: cliente ve −$500
-    // y el ahorro real (incluyendo IVU 11.5%) se refleja automáticamente en el total.
-    preIvuDiscounts.push({
+    preIvuFull.push({
       lbl: idioma === 'en' ? "Mother's 2026 (pre-tax)" : 'Promo Madres 2026 (sin IVU)',
-      val: MADRES_DISCOUNT_WATER / div,
+      val: MADRES_DISCOUNT_WATER,
     });
   }
+  const totalPreIvuDiscFull = preIvuFull.reduce((s, d) => s + d.val, 0);
 
-  // Pronto pago = pago en efectivo POST-IVU (no aplica el ahorro de IVU)
+  // Reparto proporcional del descuento sobre la base sin IVU de cada item
+  const discRatio = subtotalSinIvu > 0
+    ? Math.min(1, totalPreIvuDiscFull / subtotalSinIvu)
+    : 0;
+
+  // Suma total con IVU recomputado por item según ivuMult
+  let totalWithIvuPreDownPayment = 0;
+  let finalSinIvuTotal = 0;
+  let finalIvuTotal = 0;
+  for (const r of rows) {
+    const effBase = r.baseSinIvuLine * (1 - discRatio);
+    const itemIvu = effBase * r.ivuMult * IVU_RATE;
+    totalWithIvuPreDownPayment += effBase + itemIvu;
+    finalSinIvuTotal += effBase;
+    finalIvuTotal += itemIvu;
+  }
+
+  // Post-IVU: down payment
+  let totalFinal: number;
+  if (col.isMonthly) {
+    const monthlyEquiv = totalWithIvuPreDownPayment / inst;
+    totalFinal = Math.max(0, monthlyEquiv - (downPayment / inst));
+  } else {
+    totalFinal = Math.max(0, totalWithIvuPreDownPayment - downPayment);
+  }
+
+  // Para mostrar en líneas: dividimos por div en modo mensual
+  const preIvuDiscounts = preIvuFull.map(d => ({ lbl: d.lbl, val: d.val / div }));
   const postIvuDiscounts: { lbl: string; val: number }[] = [];
   if (downPayment > 0) {
     postIvuDiscounts.push({
@@ -297,40 +385,15 @@ const ModeSection: React.FC<ModeSectionProps> = ({
       val: downPayment / div,
     });
   }
-
-  const totalPreIvuDisc  = preIvuDiscounts.reduce((s, d) => s + d.val, 0);
-  const totalPostIvuDisc = postIvuDiscounts.reduce((s, d) => s + d.val, 0);
-
-  const IVU_RATE = 0.115;
-
-  /**
-   * Cálculo del total:
-   * - Modos no-mensuales (cash/oriental/kiwi): subtotal INCLUYE IVU.
-   *   Descuentos pre-IVU se aplican a la base sin IVU, luego se re-agrega IVU.
-   *   Down payment se resta del total con IVU.
-   * - Modos mensuales (sync 18/61): cuota incluye IVU baked in.
-   *   Descuentos pre-IVU se prorratean directamente sobre la cuota (sin recalc IVU).
-   */
-  let totalFinal: number;
-  if (col.isMonthly) {
-    totalFinal = Math.max(0, subtotal - totalPreIvuDisc - totalPostIvuDisc);
-  } else {
-    const subtotalSinIvu = subtotal / (1 + IVU_RATE);
-    const finalSinIvu    = Math.max(0, subtotalSinIvu - totalPreIvuDisc);
-    const withIvu        = finalSinIvu * (1 + IVU_RATE);
-    totalFinal           = Math.max(0, withIvu - totalPostIvuDisc);
-  }
-
-  // Lista unificada de descuentos para renderizar (pre-IVU primero, luego pronto pago)
   const discounts = [...preIvuDiscounts, ...postIvuDiscounts];
 
-  /**
-   * IVU breakdown — RECOMPUTADO sobre el total final (post-todos los descuentos)
-   * para que los números siempre cuadren: sinIVU + IVU = totalFinal.
-   * Solo aplica a modos no-mensuales (cash / oriental / kiwi).
-   */
-  const sinIvu = !col.isMonthly ? totalFinal / (1 + IVU_RATE) : 0;
-  const ivu    = !col.isMonthly ? totalFinal - sinIvu          : 0;
+  // IVU breakdown solo para non-monthly. CC 26-08 cambia la etiqueta
+  const hasCC2608Item = rows.some(r => r.eligibleCC2608);
+  const sinIvu = !col.isMonthly ? finalSinIvuTotal : 0;
+  const ivu    = !col.isMonthly ? finalIvuTotal    : 0;
+  const ivuLabel = hasCC2608Item
+    ? (idioma === 'en' ? 'IVU 11.5% (only on installation · CC 26-08)' : 'IVU 11.5% (solo sobre instalación · CC 26-08)')
+    : (idioma === 'en' ? 'Tax 11.5%' : 'IVU 11.5%');
 
   return (
     <View style={s.section} wrap={false}>
@@ -345,31 +408,75 @@ const ModeSection: React.FC<ModeSectionProps> = ({
       </View>
 
       {/* Product rows — compactas */}
-      {rows.map(({ item, unitPrice, lineTotal }) => (
-        <View key={item.product.id} style={s.trow}>
-          {item.product.imageUrl && (
-            <Image src={item.product.imageUrl} style={s.tdProductImg} />
-          )}
-          <View style={s.tdProductTxt}>
-            <Text style={s.tdProductName}>{item.product.name}</Text>
-            <Text style={s.tdProductMeta}>
-              {item.product.category} · ×{item.quantity}
-            </Text>
-            {unitPrice == null ? (
-              <Text style={s.tdNA}>
-                {t('N/A en este modo', 'N/A in this mode', idioma)}
-              </Text>
-            ) : (
-              <Text style={s.tdProductPrice}>
-                {fmt(lineTotal)}{col.isMonthly && t('/mes', '/mo', idioma)}
-                <Text style={{ fontSize: 6.5, color: MUTED, fontFamily: 'Helvetica' }}>
-                  {item.quantity > 1 && ` (${fmt(unitPrice)}${col.isMonthly ? '/mes' : ''} c/u)`}
-                </Text>
-              </Text>
+      {rows.map(({ item, unitPrice, lineTotalCatalog, baseSinIvuLine, ivuMult, eligibleCC2608, effectiveLineTotal }) => {
+        // Para cisternas con CC 26-08 mostramos el precio AJUSTADO (no el catálogo)
+        const displayLineTotal = eligibleCC2608
+          ? (col.isMonthly ? effectiveLineTotal / inst : effectiveLineTotal)
+          : lineTotalCatalog;
+        const displayUnitPrice = item.quantity > 0 ? displayLineTotal / item.quantity : displayLineTotal;
+        const cc2608Producto = eligibleCC2608 ? baseSinIvuLine * (1 - ivuMult) : 0;
+        const cc2608Instal   = eligibleCC2608 ? baseSinIvuLine * ivuMult       : 0;
+        const cc2608Ivu      = eligibleCC2608 ? cc2608Instal * IVU_RATE         : 0;
+        const cc2608Savings  = eligibleCC2608 ? (lineTotalCatalog - displayLineTotal) : 0;
+        return (
+          <View key={item.product.id} style={s.trow}>
+            {item.product.imageUrl && (
+              <Image src={item.product.imageUrl} style={s.tdProductImg} />
             )}
+            <View style={s.tdProductTxt}>
+              <Text style={s.tdProductName}>{item.product.name}</Text>
+              <Text style={s.tdProductMeta}>
+                {item.product.category} · ×{item.quantity}
+              </Text>
+              {unitPrice == null ? (
+                <Text style={s.tdNA}>
+                  {t('N/A en este modo', 'N/A in this mode', idioma)}
+                </Text>
+              ) : (
+                <>
+                  <Text style={s.tdProductPrice}>
+                    {fmt(displayLineTotal)}{col.isMonthly && t('/mes', '/mo', idioma)}
+                    <Text style={{ fontSize: 6.5, color: MUTED, fontFamily: 'Helvetica' }}>
+                      {item.quantity > 1 && ` (${fmt(displayUnitPrice)}${col.isMonthly ? '/mes' : ''} c/u)`}
+                    </Text>
+                  </Text>
+                  {/* Desglose CC 26-08 (Producto / Instalación / IVU) — solo cisternas */}
+                  {eligibleCC2608 && !col.isMonthly && (
+                    <View style={{ marginTop: 3 }}>
+                      <View style={s.splitLine}>
+                        <Text style={s.splitLbl}>
+                          {t('Producto (exento IVU)', 'Product (IVU-exempt)', idioma)}
+                          {`  ${(100 * (1 - ivuMult)).toFixed(0)}%`}
+                        </Text>
+                        <Text style={s.splitVal}>{fmt(cc2608Producto)}</Text>
+                      </View>
+                      <View style={s.splitLine}>
+                        <Text style={s.splitLbl}>
+                          {t('Instalación / Servicio', 'Installation / Service', idioma)}
+                          {`  ${(100 * ivuMult).toFixed(0)}%`}
+                        </Text>
+                        <Text style={s.splitVal}>{fmt(cc2608Instal)}</Text>
+                      </View>
+                      <View style={s.splitLine}>
+                        <Text style={s.splitLbl}>{t('IVU 11.5% sobre instalación', 'IVU 11.5% on installation', idioma)}</Text>
+                        <Text style={s.splitVal}>{fmt(cc2608Ivu)}</Text>
+                      </View>
+                      {cc2608Savings > 0.01 && (
+                        <View style={s.savingsLine}>
+                          <Text style={s.savingsLbl}>
+                            {t('Ahorras vs. IVU regular', 'You save vs. regular IVU', idioma)}
+                          </Text>
+                          <Text style={s.savingsVal}>−{fmt(cc2608Savings)}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
 
       {/* Descuentos — primero, para que el IVU se recalcule sobre el monto final */}
       {discounts.length > 0 && (
@@ -393,7 +500,7 @@ const ModeSection: React.FC<ModeSectionProps> = ({
             <Text style={s.ivuVal}>{fmt(sinIvu)}</Text>
           </View>
           <View style={s.ivuLine}>
-            <Text style={s.ivuLbl}>{t('IVU 11.5%', 'Tax 11.5%', idioma)}</Text>
+            <Text style={s.ivuLbl}>{ivuLabel}</Text>
             <Text style={s.ivuVal}>{fmt(ivu)}</Text>
           </View>
         </View>
@@ -419,7 +526,11 @@ const ModeSection: React.FC<ModeSectionProps> = ({
 export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
   items, hasSolarBundle, hasROBundle, downPayment,
   consultor, cliente, quoteNumber, date, effectiveCols, idioma, promoMadres,
+  ivuExemptCC2608 = false,
 }) => {
+  // Solo activamos el banner si hay cisternas en el carrito Y el flag esta on
+  const hasCisternasInCart = items.some(it => it.product.installPercent !== undefined);
+  const cc2608Active = ivuExemptCC2608 && hasCisternasInCart;
   return (
     <Document>
       <Page size="LETTER" style={s.page}>
@@ -515,6 +626,33 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
           })()}
         </View>
 
+        {/* Banner CC 26-08 — vigente cuando hay cisternas + toggle activo */}
+        {cc2608Active && (
+          <View style={s.cc2608Banner} wrap={false}>
+            <Text style={s.cc2608Title}>
+              🌀 {t(
+                'PERÍODO LIBRE DE IVU · CC 26-08',
+                'IVU-FREE PERIOD · CC 26-08',
+                idioma,
+              )} 🌀
+            </Text>
+            <Text style={s.cc2608Sub}>
+              {t(
+                'Vigente 22-25 de mayo 2026 · Exención de IVU sobre el producto en cisternas para preparación de huracanes',
+                'Valid May 22–25, 2026 · IVU exempt on product portion of cisterns for hurricane prep',
+                idioma,
+              )}
+            </Text>
+            <Text style={s.cc2608Notes}>
+              {t(
+                'Solo cualifica si: la venta se procesa por VASS · pronto 100% al firmar · documentación completa dentro del período',
+                'Qualifies only if: sale processed via VASS · 100% down payment at signing · full documentation within the period',
+                idioma,
+              )}
+            </Text>
+          </View>
+        )}
+
         {/* SECCIONES POR MODO — una columna, filas full-width */}
         {effectiveCols.map(col => (
           <ModeSection
@@ -526,6 +664,7 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
             downPayment={downPayment}
             promoMadres={promoMadres}
             idioma={idioma}
+            ivuExemptCC2608={cc2608Active}
           />
         ))}
 

@@ -21,6 +21,14 @@ export interface Product {
   ivu?: number;
   cashSinIvu?: number;
   ivuCash?: number;
+  /**
+   * Porcentaje de instalación/servicio sobre el precio sin IVU.
+   * Solo aplica a productos elegibles (cisternas) para el Período Libre de IVU CC 26-08.
+   * Eco 150 = 0.20 · Eco 500 = 0.15 · Hércules 600 = 0.15.
+   * Cuando se activa el toggle CC 26-08: Producto = base × (1 - installPercent) queda exento,
+   * Instalación = base × installPercent mantiene 11.5% IVU.
+   */
+  installPercent?: number;
   /** Multiplicador visual para normalizar tamaño de imagen en el grid. Default = 1 */
   imageScale?: number;
 }
