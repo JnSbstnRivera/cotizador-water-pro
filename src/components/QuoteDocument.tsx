@@ -295,6 +295,8 @@ export interface QuoteDocumentProps {
   promoMadres: boolean;
   /** Período Libre de IVU CC 26-08: split Producto/Instalación en cisternas */
   ivuExemptCC2608?: boolean;
+  /** Firma y Gana — cashback $500 al cliente por referir (independiente de Solar Bundle) */
+  firmaYGana?: boolean;
   /** Kept for API compatibility — not used in section layout */
   primarySyncTerm?: 18 | 61;
 }
@@ -312,10 +314,11 @@ interface ModeSectionProps {
   promoMadres: boolean;
   idioma: Idioma;
   ivuExemptCC2608: boolean;
+  firmaYGana: boolean;
 }
 
 const ModeSection: React.FC<ModeSectionProps> = ({
-  col, items, hasSolarBundle, hasROBundle, downPayment, promoMadres, idioma, ivuExemptCC2608,
+  col, items, hasSolarBundle, hasROBundle, downPayment, promoMadres, idioma, ivuExemptCC2608, firmaYGana,
 }) => {
   const IVU_RATE = 0.115;
   const inst = col.installments ?? 18;
@@ -391,6 +394,12 @@ const ModeSection: React.FC<ModeSectionProps> = ({
   if (hasSolarBundle) {
     preIvuFull.push({
       lbl: idioma === 'en' ? 'Solar Bundle (pre-tax)' : 'Solar Bundle (sin IVU)',
+      val: 500,
+    });
+  }
+  if (firmaYGana) {
+    preIvuFull.push({
+      lbl: idioma === 'en' ? 'Sign & Win cashback (pre-tax)' : 'Firma y Gana cashback (sin IVU)',
       val: 500,
     });
   }
@@ -590,6 +599,7 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
   items, hasSolarBundle, hasROBundle, downPayment,
   consultor, cliente, quoteNumber, date, effectiveCols, idioma, promoMadres,
   ivuExemptCC2608 = false,
+  firmaYGana = false,
 }) => {
   // Solo activamos el banner si hay cisternas en el carrito Y el flag esta on
   const hasCisternasInCart = items.some(it => it.product.installPercent !== undefined);
@@ -732,6 +742,7 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
             promoMadres={promoMadres}
             idioma={idioma}
             ivuExemptCC2608={cc2608Active}
+            firmaYGana={firmaYGana}
           />
         ))}
 

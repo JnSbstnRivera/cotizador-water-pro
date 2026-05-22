@@ -45,6 +45,9 @@ interface PDFModalProps {
   onIvuExemptCC2608Change: (v: boolean) => void;
   /** Si hay al menos una cisterna en el carrito (habilita el toggle CC 26-08) */
   hasCisternasInCart: boolean;
+  /** Firma y Gana — cashback $500 al cliente por referir (independiente de Solar Bundle) */
+  firmaYGana: boolean;
+  onFirmaYGanaChange: (v: boolean) => void;
 }
 
 // ─── helper de campo ────────────────────────────────────────────────────────
@@ -97,6 +100,7 @@ export function PDFModal({
   promoMadres, onPromoMadresChange,
   downPayment,
   ivuExemptCC2608, onIvuExemptCC2608Change, hasCisternasInCart,
+  firmaYGana, onFirmaYGanaChange,
 }: PDFModalProps) {
 
   const [cliente, setCliente] = useState<ClienteForm>({
@@ -372,6 +376,11 @@ export function PDFModal({
                     ⛈️ IVU exento
                   </span>
                 )}
+                {firmaYGana && (
+                  <span style={{ background: '#f59e0b', color: 'white', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                    💵 Firma y Gana
+                  </span>
+                )}
                 {promoMadres && madresApply && (
                   <span style={{ background: '#E84F97', color: 'white', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
                     ❤ Madres
@@ -413,6 +422,32 @@ export function PDFModal({
                     </div>
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 800, color: hasSolarBundle ? '#10b981' : '#94a3b8' }}>−$500</span>
+                </label>
+
+                {/* Firma y Gana — cashback $500 por referir (independiente de Solar Bundle) */}
+                <label style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                  background: firmaYGana ? '#fef3c7' : 'white',
+                  border: `2px solid ${firmaYGana ? '#f59e0b' : '#d0d9ef'}`,
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={firmaYGana}
+                    onChange={e => onFirmaYGanaChange(e.target.checked)}
+                    style={{ width: 18, height: 18, accentColor: '#f59e0b', marginTop: 2 }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: firmaYGana ? '#92400e' : '#1a56c4' }}>
+                      💵 {idioma === 'en' ? 'Sign & Win — Referral Cashback' : 'Firma y Gana — Cashback por Referir'}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: '#666', marginTop: 2, lineHeight: 1.4 }}>
+                      {idioma === 'en'
+                        ? <>Apply <b>−$500</b> cashback when the client refers another customer. The consultant explains and confirms eligibility.</>
+                        : <>Aplica <b>−$500</b> de cashback cuando el cliente refiere a otro. El asesor explica y confirma elegibilidad.</>}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: firmaYGana ? '#f59e0b' : '#94a3b8' }}>−$500</span>
                 </label>
 
                 {/* Período libre de IVU CC 26-08 — solo cisternas */}

@@ -33,6 +33,8 @@ export default function App() {
   const [promoMadres, setPromoMadres] = useState(false);
   // Período libre de IVU (Carta Circular 26-08) — split Producto/Instalación en cisternas
   const [ivuExemptCC2608, setIvuExemptCC2608] = useState(false);
+  // Firma y Gana — cashback de $500 al cliente por referir (selector independiente)
+  const [firmaYGana, setFirmaYGana] = useState(false);
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
@@ -124,7 +126,7 @@ export default function App() {
   const handlePDFGenerate = async (formData: CotizacionFormData) => {
     setIsGeneratingPDF(true);
     try {
-      await downloadCotizacionPDF(cart, formData, hasBonus, hasROAndOther, downPayment, ivuExemptActive);
+      await downloadCotizacionPDF(cart, formData, hasBonus, hasROAndOther, downPayment, ivuExemptActive, firmaYGana);
       setShowPDFModal(false);
       showToast('PDF descargado correctamente ✓');
     } catch (err) {
@@ -159,6 +161,9 @@ export default function App() {
     ...(hasBonus
       ? { [idiomaPDF === 'en' ? 'Solar Bundle' : 'Solar Bundle']: '−$500.00' }
       : {}),
+    ...(firmaYGana
+      ? { [idiomaPDF === 'en' ? 'Sign & Win (cashback)' : 'Firma y Gana (cashback)']: '−$500.00' }
+      : {}),
     ...(hasROAndOther
       ? { [idiomaPDF === 'en' ? 'RO Bundle' : 'Combo RO']: '−$1,000.00' }
       : {}),
@@ -191,6 +196,8 @@ export default function App() {
         ivuExemptCC2608={ivuExemptCC2608}
         onIvuExemptCC2608Change={setIvuExemptCC2608}
         hasCisternasInCart={hasCisternasInCart}
+        firmaYGana={firmaYGana}
+        onFirmaYGanaChange={setFirmaYGana}
       />
       <AnimatePresence>
         {isSplashVisible && (
