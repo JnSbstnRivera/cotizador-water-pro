@@ -1,10 +1,17 @@
 import React from 'react';
 import {
-  Document, Page, View, Text, Image, StyleSheet,
+  Document, Page, View, Text, Image, StyleSheet, Font,
 } from '@react-pdf/renderer';
 import { CartItem, PaymentMode, ConsultorInfo, ClienteInfo, Idioma } from '../types';
 import { MODE_LABELS } from '../constants';
 import { MADRES_DISCOUNT_WATER } from '../lib/promoMadres';
+
+// Registra fuente con simbolos meteorologicos (⛈ ⚡ ☁ ☀ ♥ ❄ ☂) para usarla
+// en el banner CC 26-08. Helvetica no soporta estos chars; con esta fuente sí.
+Font.register({
+  family: 'NotoSymbols',
+  src: '/fonts/NotoSymbols.ttf',
+});
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -213,6 +220,9 @@ const s = StyleSheet.create({
     fontSize: 11, color: '#075985', fontFamily: 'Helvetica-Bold',
     textAlign: 'center', letterSpacing: 0.5,
   },
+  cc2608Emoji: {
+    fontFamily: 'NotoSymbols', fontSize: 12, color: '#075985',
+  },
   cc2608Sub: {
     fontSize: 7.5, color: '#0c4a6e', textAlign: 'center',
     fontFamily: 'Helvetica', lineHeight: 1.3,
@@ -222,17 +232,42 @@ const s = StyleSheet.create({
     lineHeight: 1.3, marginTop: 2, textAlign: 'center',
   },
 
-  // Sub-breakdown line dentro de un producto (Producto/Instalación/IVU)
-  splitLine: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingLeft: 8, paddingRight: 4, marginTop: 1,
+  // Mini-tabla Excel CC 26-08 (5 filas por cisterna)
+  cc2608Table: {
+    marginTop: 4, marginLeft: 8, marginRight: 4,
+    borderWidth: 1, borderColor: '#0ea5e9', borderRadius: 4,
+    overflow: 'hidden',
   },
-  splitLbl: { fontSize: 6.8, color: MUTED, fontFamily: 'Helvetica' },
-  splitVal: { fontSize: 6.8, color: TXT, fontFamily: 'Helvetica-Bold' },
+  cc2608Row: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingHorizontal: 6, paddingVertical: 2.5,
+    borderBottomWidth: 0.5, borderBottomColor: '#bae6fd',
+  },
+  cc2608RowLast: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingHorizontal: 6, paddingVertical: 3,
+    backgroundColor: '#fef3c7',
+  },
+  cc2608RowLbl: {
+    fontSize: 7, color: '#0c4a6e', fontFamily: 'Helvetica-Bold',
+    textTransform: 'uppercase', letterSpacing: 0.3,
+  },
+  cc2608RowVal: { fontSize: 7.5, color: TXT, fontFamily: 'Helvetica-Bold' },
+  cc2608RowValStrike: {
+    fontSize: 7, color: MUTED, fontFamily: 'Helvetica',
+    textDecoration: 'line-through',
+  },
+  cc2608RowTotalLbl: {
+    fontSize: 8, color: '#7c2d12', fontFamily: 'Helvetica-Bold',
+    textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+  cc2608RowTotalVal: {
+    fontSize: 9, color: '#7c2d12', fontFamily: 'Helvetica-Bold',
+  },
   savingsLine: {
     flexDirection: 'row', justifyContent: 'space-between',
-    paddingHorizontal: 8, paddingVertical: 3, marginTop: 2,
-    backgroundColor: '#f0fdf4', borderRadius: 4,
+    paddingHorizontal: 6, paddingVertical: 3, marginTop: 3,
+    backgroundColor: '#dcfce7', borderRadius: 4,
   },
   savingsLbl: { fontSize: 7.5, color: '#15803d', fontFamily: 'Helvetica-Bold' },
   savingsVal: { fontSize: 7.5, color: '#15803d', fontFamily: 'Helvetica-Bold' },
@@ -449,26 +484,42 @@ const ModeSection: React.FC<ModeSectionProps> = ({
                       {item.quantity > 1 && ` (${fmt(displayUnitPrice)}${col.isMonthly ? '/mes' : ''} c/u)`}
                     </Text>
                   </Text>
-                  {/* Desglose CC 26-08 (Producto / Instalación / IVU) — solo cisternas */}
+                  {/* Desglose CC 26-08 estilo Excel (Costo Regular / Producto / Instalación / IVU / Total) */}
                   {eligibleCC2608 && !col.isMonthly && (
                     <View style={{ marginTop: 3 }}>
-                      <View style={s.splitLine}>
-                        <Text style={s.splitLbl}>
-                          {t('Producto (exento IVU)', 'Product (IVU-exempt)', idioma)}
-                          {`  ${(100 * (1 - ivuMult)).toFixed(0)}%`}
-                        </Text>
-                        <Text style={s.splitVal}>{fmt(cc2608Producto)}</Text>
-                      </View>
-                      <View style={s.splitLine}>
-                        <Text style={s.splitLbl}>
-                          {t('Instalación / Servicio', 'Installation / Service', idioma)}
-                          {`  ${(100 * ivuMult).toFixed(0)}%`}
-                        </Text>
-                        <Text style={s.splitVal}>{fmt(cc2608Instal)}</Text>
-                      </View>
-                      <View style={s.splitLine}>
-                        <Text style={s.splitLbl}>{t('IVU 11.5% sobre instalación', 'IVU 11.5% on installation', idioma)}</Text>
-                        <Text style={s.splitVal}>{fmt(cc2608Ivu)}</Text>
+                      <View style={s.cc2608Table}>
+                        <View style={s.cc2608Row}>
+                          <Text style={s.cc2608RowLbl}>
+                            {t('Costo Regular', 'Regular Cost', idioma)}
+                          </Text>
+                          <Text style={s.cc2608RowValStrike}>{fmt(baseSinIvuLine)}</Text>
+                        </View>
+                        <View style={s.cc2608Row}>
+                          <Text style={s.cc2608RowLbl}>
+                            {t('Producto con Descuento IVU', 'Product (IVU discount)', idioma)}
+                            {`  (${(100 * (1 - ivuMult)).toFixed(0)}%)`}
+                          </Text>
+                          <Text style={s.cc2608RowVal}>{fmt(cc2608Producto)}</Text>
+                        </View>
+                        <View style={s.cc2608Row}>
+                          <Text style={s.cc2608RowLbl}>
+                            {t('Costo Instalación', 'Installation Cost', idioma)}
+                            {`  (${(100 * ivuMult).toFixed(0)}%)`}
+                          </Text>
+                          <Text style={s.cc2608RowVal}>{fmt(cc2608Instal)}</Text>
+                        </View>
+                        <View style={s.cc2608Row}>
+                          <Text style={s.cc2608RowLbl}>
+                            {t('IVU 11.5% sobre Instalación', 'IVU 11.5% on Installation', idioma)}
+                          </Text>
+                          <Text style={s.cc2608RowVal}>{fmt(cc2608Ivu)}</Text>
+                        </View>
+                        <View style={s.cc2608RowLast}>
+                          <Text style={s.cc2608RowTotalLbl}>
+                            {t('Costo Total', 'Total Cost', idioma)}
+                          </Text>
+                          <Text style={s.cc2608RowTotalVal}>{fmt(displayLineTotal)}</Text>
+                        </View>
                       </View>
                       {cc2608Savings > 0.01 && (
                         <View style={s.savingsLine}>
@@ -639,11 +690,15 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
         {cc2608Active && (
           <View style={s.cc2608Banner} wrap={false}>
             <Text style={s.cc2608Title}>
+              <Text style={s.cc2608Emoji}>⛈</Text>
+              {'  '}
               {t(
-                '« PERÍODO LIBRE DE IVU · CC 26-08 »',
-                '« IVU-FREE PERIOD · CC 26-08 »',
+                'PERÍODO LIBRE DE IVU · CC 26-08',
+                'IVU-FREE PERIOD · CC 26-08',
                 idioma,
               )}
+              {'  '}
+              <Text style={s.cc2608Emoji}>⛈</Text>
             </Text>
             <Text style={s.cc2608Sub}>
               {t(
