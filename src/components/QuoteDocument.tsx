@@ -696,8 +696,8 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
               <Text style={s.cc2608Emoji}>⛈</Text>
               {'  '}
               {t(
-                'PERÍODO LIBRE DE IVU · CC 26-08',
-                'IVU-FREE PERIOD · CC 26-08',
+                'PERÍODO LIBRE DE IVU',
+                'IVU-FREE PERIOD',
                 idioma,
               )}
               {'  '}
