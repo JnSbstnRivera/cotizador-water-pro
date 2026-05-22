@@ -288,7 +288,8 @@ const ModeSection: React.FC<ModeSectionProps> = ({
 
   /**
    * Por item calculamos:
-   *  - baseSinIvuLine: precio del catálogo SIN IVU multiplicado por quantity
+   *  - unitBaseSinIvu: base SIN IVU del producto (usar synchronySinIvu/cashSinIvu si existen,
+   *    para evitar drift de centavos por round-trip de floating point)
    *  - ivuMult: 1.0 normal, installPercent si la cisterna aplica CC 26-08
    *  - eligibleCC2608: si esta linea aplica el split (cisterna con installPercent definido)
    */
@@ -300,8 +301,16 @@ const ModeSection: React.FC<ModeSectionProps> = ({
     let ivuMult = 1;
     let eligibleCC2608 = false;
     if (unitPrice != null) {
-      const totalWithIvu = col.isMonthly ? unitPrice * inst : unitPrice;
-      unitBaseSinIvu = totalWithIvu / (1 + IVU_RATE);
+      // Preferimos las bases sin-IVU explicitas del producto:
+      // - synchronySinIvu = base catalogo FIN (modos mensuales m18/m61 y kiwi)
+      // - cashSinIvu      = base cash (10% off catalogo, modos cash/oriental)
+      // Fallback: derivar de unitPrice si no estan definidos.
+      if (col.isMonthly || col.key === 'kiwi') {
+        unitBaseSinIvu = item.product.synchronySinIvu
+          ?? ((col.isMonthly ? unitPrice * inst : unitPrice) / (1 + IVU_RATE));
+      } else {
+        unitBaseSinIvu = item.product.cashSinIvu ?? (unitPrice / (1 + IVU_RATE));
+      }
       baseSinIvuLine = unitBaseSinIvu * item.quantity;
       if (ivuExemptCC2608 && item.product.installPercent !== undefined) {
         ivuMult = item.product.installPercent;

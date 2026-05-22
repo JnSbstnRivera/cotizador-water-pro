@@ -369,7 +369,7 @@ export function PDFModal({
                 )}
                 {ivuExemptCC2608 && hasCisternasInCart && (
                   <span style={{ background: '#0ea5e9', color: 'white', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
-                    🌀 CC 26-08
+                    ⛈️ CC 26-08
                   </span>
                 )}
                 {promoMadres && madresApply && (
@@ -436,7 +436,7 @@ export function PDFModal({
                       fontSize: 12.5, fontWeight: 800,
                       color: (ivuExemptCC2608 && hasCisternasInCart) ? '#075985' : '#1a56c4',
                     }}>
-                      🌀 {idioma === 'en' ? 'IVU-free Period · CC 26-08' : 'Período Libre de IVU · CC 26-08'}
+                      ⛈️ {idioma === 'en' ? 'IVU-free Period · CC 26-08' : 'Período Libre de IVU · CC 26-08'}
                     </div>
                     <div style={{ fontSize: 10.5, color: '#666', marginTop: 2, lineHeight: 1.4 }}>
                       {idioma === 'en'
