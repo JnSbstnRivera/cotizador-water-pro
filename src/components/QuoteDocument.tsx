@@ -269,51 +269,41 @@ const s = StyleSheet.create({
     color: '#e2e8f0', fontSize: 8.5, fontFamily: 'Helvetica-Bold',
   },
 
-  // TOTAL final — bloque al final del PDF, un total por modo (suave)
+  // TOTAL final — bloque al final del PDF, un total por modo
+  // Estilo: azul claro, sin marco, parecido al sectionTotal original
   finalTotalSection: {
     marginHorizontal: 24, marginTop: 14, marginBottom: 4,
-    borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, overflow: 'hidden',
-    backgroundColor: '#f8fafc',
+    gap: 4,
   },
   finalTotalRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 11, paddingHorizontal: 14,
-    backgroundColor: '#ffffff',
-    borderLeftWidth: 3,
-    borderBottomWidth: 0.5, borderBottomColor: '#e2e8f0',
+    paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: '#dbeafe', // azul claro Windmar
+    borderRadius: 6,
   },
   finalTotalLeft: {
     flex: 1,
   },
   finalTotalMode: {
-    fontSize: 10.5, color: '#1e293b', fontFamily: 'Helvetica-Bold',
+    fontSize: 10, color: NAVY, fontFamily: 'Helvetica-Bold',
     letterSpacing: 0.5, textTransform: 'uppercase',
   },
   finalTotalSub: {
-    fontSize: 7.5, color: '#94a3b8', fontFamily: 'Helvetica',
+    fontSize: 7.5, color: MUTED, fontFamily: 'Helvetica',
     marginTop: 1,
   },
   finalTotalRight: {
     alignItems: 'flex-end',
   },
   finalTotalValue: {
-    fontSize: 16, fontFamily: 'Helvetica-Bold',
+    fontSize: 15, fontFamily: 'Helvetica-Bold',
   },
   finalTotalValueMonthly: {
-    fontSize: 13.5, fontFamily: 'Helvetica-Bold',
+    fontSize: 13, fontFamily: 'Helvetica-Bold',
   },
   finalTotalAddOnNote: {
-    fontSize: 7.5, color: '#94a3b8', fontFamily: 'Helvetica',
+    fontSize: 7.5, color: MUTED, fontFamily: 'Helvetica',
     marginTop: 1,
-  },
-  finalTotalFooter: {
-    backgroundColor: '#f1f5f9', paddingVertical: 6, paddingHorizontal: 14,
-    alignItems: 'center',
-    borderTopWidth: 0.5, borderTopColor: '#cbd5e1',
-  },
-  finalTotalFooterLbl: {
-    color: '#64748b', fontSize: 9, fontFamily: 'Helvetica-Bold',
-    letterSpacing: 1.5,
   },
 
   // Madres banner
@@ -1056,53 +1046,50 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
         {/* TOTAL FINAL — solo aparece cuando hay add-ons (suma productos + add-ons).
             Si solo hay productos, el 'Total con IVU' de cada modo ya es el total final. */}
         {addOnsTotalConIvu > 0 && (
-        <View style={s.finalTotalSection} wrap={false}>
-          {modeTotals.map(({ col, productsTotal, addOnsTotal, combined }) => (
-            <View key={col.key} style={[s.finalTotalRow, { borderLeftColor: col.color }]}>
-              <View style={s.finalTotalLeft}>
-                <Text style={s.finalTotalMode}>{col.label}</Text>
-                {col.isMonthly ? (
-                  <Text style={s.finalTotalSub}>
-                    {t(
-                      `Mensualidad ${col.installments}m + Add-Ons cargo único`,
-                      `Monthly ${col.installments}m + Add-Ons one-time`,
-                      idioma,
-                    )}
+          <View style={s.finalTotalSection} wrap={false}>
+            {modeTotals.map(({ col, productsTotal, addOnsTotal, combined }) => (
+              <View key={col.key} style={s.finalTotalRow}>
+                <View style={s.finalTotalLeft}>
+                  <Text style={s.finalTotalMode}>
+                    {t('Total', 'Total', idioma)} {col.label}
                   </Text>
-                ) : (
-                  <Text style={s.finalTotalSub}>
-                    {addOnsTotal > 0
-                      ? t('Productos + Add-Ons (todo con IVU)', 'Products + Add-Ons (all with tax)', idioma)
-                      : t('Productos (con IVU)', 'Products (with tax)', idioma)}
-                  </Text>
-                )}
-              </View>
-              <View style={s.finalTotalRight}>
-                {col.isMonthly ? (
-                  <>
-                    <Text style={[s.finalTotalValueMonthly, { color: col.color }]}>
-                      {fmt(productsTotal)}{t('/mes', '/mo', idioma)}
+                  {col.isMonthly ? (
+                    <Text style={s.finalTotalSub}>
+                      {t(
+                        `Mensualidad ${col.installments}m + Add-Ons cargo único`,
+                        `Monthly ${col.installments}m + Add-Ons one-time`,
+                        idioma,
+                      )}
                     </Text>
-                    {addOnsTotal > 0 && (
-                      <Text style={s.finalTotalAddOnNote}>
-                        + {fmt(addOnsTotal)} {t('cargo único', 'one-time', idioma)}
+                  ) : (
+                    <Text style={s.finalTotalSub}>
+                      {addOnsTotal > 0
+                        ? t('Productos + Add-Ons (todo con IVU)', 'Products + Add-Ons (all with tax)', idioma)
+                        : t('Productos (con IVU)', 'Products (with tax)', idioma)}
+                    </Text>
+                  )}
+                </View>
+                <View style={s.finalTotalRight}>
+                  {col.isMonthly ? (
+                    <>
+                      <Text style={[s.finalTotalValueMonthly, { color: col.color }]}>
+                        {fmt(productsTotal)}{t('/mes', '/mo', idioma)}
                       </Text>
-                    )}
-                  </>
-                ) : (
-                  <Text style={[s.finalTotalValue, { color: col.color }]}>
-                    {fmt(combined)}
-                  </Text>
-                )}
+                      {addOnsTotal > 0 && (
+                        <Text style={s.finalTotalAddOnNote}>
+                          + {fmt(addOnsTotal)} {t('cargo único', 'one-time', idioma)}
+                        </Text>
+                      )}
+                    </>
+                  ) : (
+                    <Text style={[s.finalTotalValue, { color: col.color }]}>
+                      {fmt(combined)}
+                    </Text>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
-          <View style={s.finalTotalFooter}>
-            <Text style={s.finalTotalFooterLbl}>
-              {t('TOTAL', 'TOTAL', idioma)}
-            </Text>
+            ))}
           </View>
-        </View>
         )}
 
         {/* Madres — banner con corazones (sólo cuando promo activa) */}
