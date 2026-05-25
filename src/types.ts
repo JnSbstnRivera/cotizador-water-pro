@@ -39,6 +39,26 @@ export interface CartItem {
   installments?: 18 | 61;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Add-Ons & Upgrades — servicios adicionales (Listado Add-On Windmar Water)
+// Los precios NO incluyen IVU; el front suma 11.5% automatico al subtotal.
+// ─────────────────────────────────────────────────────────────────────────────
+export type AddOnCategory =
+  | 'Punto de Entrada'
+  | 'Punto de Uso'
+  | 'Cisternas y Bombas'
+  | 'Calentadores Solares';
+
+export interface AddOn {
+  id: string;
+  category: AddOnCategory;
+  name: string;
+  /** Precio SIN IVU (tal como aparece en la lista oficial). */
+  priceSinIvu: number;
+  /** Notas / descripcion del add-on para el asesor. */
+  notes: string;
+}
+
 export interface ConsultorInfo {
   nombre: string;
   correo: string;

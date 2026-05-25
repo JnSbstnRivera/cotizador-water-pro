@@ -35,6 +35,8 @@ export default function App() {
   const [ivuExemptCC2608, setIvuExemptCC2608] = useState(false);
   // Firma y Gana — cashback de $500 al cliente por referir (selector independiente)
   const [firmaYGana, setFirmaYGana] = useState(false);
+  // Add-Ons & Upgrades — mapa addOnId -> qty (no presente o 0 = no seleccionado)
+  const [addOnQuantities, setAddOnQuantities] = useState<Record<string, number>>({});
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
@@ -126,7 +128,7 @@ export default function App() {
   const handlePDFGenerate = async (formData: CotizacionFormData) => {
     setIsGeneratingPDF(true);
     try {
-      await downloadCotizacionPDF(cart, formData, hasBonus, hasROAndOther, downPayment, ivuExemptActive, firmaYGana);
+      await downloadCotizacionPDF(cart, formData, hasBonus, hasROAndOther, downPayment, ivuExemptActive, firmaYGana, addOnQuantities);
       setShowPDFModal(false);
       showToast('PDF descargado correctamente ✓');
     } catch (err) {
@@ -386,6 +388,8 @@ export default function App() {
                 onRemoveItem={handleRemoveItem}
                 onClear={handleClearCart}
                 onPDF={() => setShowPDFModal(true)}
+                addOnQuantities={addOnQuantities}
+                onAddOnQtyChange={setAddOnQuantities}
               />
             </aside>
           </div>
