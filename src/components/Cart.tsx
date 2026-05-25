@@ -165,6 +165,16 @@ export function Cart({
 
   const isMonthly = mode === 'synchrony';
 
+  // Bundle RO: $1,000 descuento si lleva Reverse Osmosis (trat-ro) + otro producto
+  // y RO tiene precio en el modo activo (RO no tiene precio en synchrony m18/m61)
+  const hasROInCart = items.some(it => it.product.id === 'trat-ro');
+  const hasOtherProductInCart = items.some(it => it.product.id !== 'trat-ro');
+  const roItem = items.find(it => it.product.id === 'trat-ro');
+  const roHasPriceInMode = roItem ? getItemPrice(roItem, mode, syncTerm) != null : false;
+  const RO_BUNDLE_DISCOUNT = 1000;
+  const showROBundleDiscount = hasROInCart && hasOtherProductInCart && roHasPriceInMode;
+  const roBundleDiscount = showROBundleDiscount ? RO_BUNDLE_DISCOUNT : 0;
+
   // Add-Ons: subtotal con IVU (los precios en la lista son SIN IVU)
   const addOnsSubtotal = useMemo(() => {
     return ADD_ONS.reduce((sum, a) => {
@@ -180,7 +190,11 @@ export function Cart({
   );
 
   // Add-ons NO se suman al monthly (siempre van como cargo unico)
-  const subtotal = isMonthly ? productsSubtotal : productsSubtotal + addOnsSubtotal;
+  // RO Bundle aplica sobre productos (no sobre add-ons)
+  const productsAfterRoBundle = Math.max(0, productsSubtotal - roBundleDiscount);
+  const subtotal = isMonthly
+    ? productsAfterRoBundle
+    : productsAfterRoBundle + addOnsSubtotal;
 
   const updateAddOn = (id: string, delta: number) => {
     const curr = addOnQuantities[id] || 0;
@@ -424,8 +438,8 @@ export function Cart({
           Resumen de compra
         </p>
 
-        {/* Subtotal — desglosado si hay add-ons */}
-        {addOnsSubtotal > 0 ? (
+        {/* Subtotal — desglosado si hay add-ons o RO bundle */}
+        {(addOnsSubtotal > 0 || showROBundleDiscount) ? (
           <>
             <div className="flex justify-between items-baseline">
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -435,15 +449,28 @@ export function Cart({
                 {fmt(productsSubtotal)}{isMonthly && <span className="text-[10px]">/mes</span>}
               </span>
             </div>
-            <div className="flex justify-between items-baseline">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                Add-ons (cargo unico)
-              </span>
-              <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                +{fmt(addOnsSubtotal)}
-              </span>
-            </div>
-            {isMonthly && (
+            {showROBundleDiscount && (
+              <div className="flex justify-between items-baseline">
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                  <span className="text-[9px]">💧</span>
+                  Combo RO (sin IVU)
+                </span>
+                <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                  −{fmt(RO_BUNDLE_DISCOUNT)}
+                </span>
+              </div>
+            )}
+            {addOnsSubtotal > 0 && (
+              <div className="flex justify-between items-baseline">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Add-ons (cargo unico)
+                </span>
+                <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                  +{fmt(addOnsSubtotal)}
+                </span>
+              </div>
+            )}
+            {isMonthly && addOnsSubtotal > 0 && (
               <p className="text-[9px] italic text-slate-400 -mt-1">
                 Los add-ons se cobran como cargo unico aparte de las cuotas.
               </p>
