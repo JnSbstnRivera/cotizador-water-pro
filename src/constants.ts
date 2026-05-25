@@ -1,4 +1,105 @@
-import { Product, PaymentMode } from './types';
+import { Product, PaymentMode, AddOn } from './types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IVU Puerto Rico 11.5% — aplica a add-ons que se muestran sin IVU en la lista
+// ─────────────────────────────────────────────────────────────────────────────
+export const ADDON_IVU_RATE = 0.115;
+export const addOnPriceConIvu = (priceSinIvu: number): number =>
+  Math.round(priceSinIvu * (1 + ADDON_IVU_RATE) * 100) / 100;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add-Ons & Upgrades — Listado de Precios Add On Windmar Water (precios SIN IVU)
+// ─────────────────────────────────────────────────────────────────────────────
+export const ADD_ONS: AddOn[] = [
+  // Punto de Entrada
+  {
+    id: 'pe-water-care-13x54',
+    category: 'Punto de Entrada',
+    name: 'Water Care 13x54',
+    priceSinIvu: 1500,
+    notes: 'Para remplazar al modelo 10x54 cuando el cliente requiere una mayor capacidad o rendimiento.',
+  },
+  {
+    id: 'pe-non-salt-poe',
+    category: 'Punto de Entrada',
+    name: 'Non Salt POE',
+    priceSinIvu: 0,
+    notes: 'No Charge · Sistema de tratamiento de agua en el punto de entrada SIN resina para espacios reducidos.',
+  },
+  // Punto de Uso
+  {
+    id: 'pu-tankless-ro',
+    category: 'Punto de Uso',
+    name: 'Tankless RO',
+    priceSinIvu: 950,
+    notes: 'Sustituye el tanque tradicional del osmosis inversa por una solucion sin tanque. OJO: requiere electricidad y presion minima de 40 psi.',
+  },
+  {
+    id: 'pu-titan-water',
+    category: 'Punto de Uso',
+    name: 'Titan Water',
+    priceSinIvu: 295,
+    notes: 'Sustituye el grifo cromado para los clientes que no quieren perforar su tope.',
+  },
+  // Cisternas y Bombas
+  {
+    id: 'cb-cisterna-torre-150',
+    category: 'Cisternas y Bombas',
+    name: 'Cisterna torre de 150 gal',
+    priceSinIvu: 475,
+    notes: 'Aumento de capacidad.',
+  },
+  {
+    id: 'cb-cisterna-600',
+    category: 'Cisternas y Bombas',
+    name: 'Cisterna de 600 gal',
+    priceSinIvu: 1200,
+    notes: 'Aumento de capacidad.',
+  },
+  {
+    id: 'cb-cisterna-1000-blanca',
+    category: 'Cisternas y Bombas',
+    name: 'Cisterna de 1,000 gal (blanca)',
+    priceSinIvu: 750,
+    notes: 'Aumento de capacidad.',
+  },
+  {
+    id: 'cb-presurizado-80',
+    category: 'Cisternas y Bombas',
+    name: 'Presurizado de 80 gal',
+    priceSinIvu: 600,
+    notes: 'Aumento de capacidad.',
+  },
+  {
+    id: 'cb-bomba-15hp-jet',
+    category: 'Cisternas y Bombas',
+    name: 'Bomba de agua 1.5HP Jet Pump',
+    priceSinIvu: 1000,
+    notes: 'Aumento de capacidad.',
+  },
+  {
+    id: 'cb-bomba-2hp-vfd',
+    category: 'Cisternas y Bombas',
+    name: 'Bomba de agua 2HP VFD Controller',
+    priceSinIvu: 2500,
+    notes: 'Aumento de capacidad.',
+  },
+  {
+    id: 'cb-smart-water-monitor',
+    category: 'Cisternas y Bombas',
+    name: 'Smart Water — Wireless Monitoring System',
+    priceSinIvu: 875,
+    notes: 'Disenado para monitorear el nivel de agua en la cisterna y supervisar su uso en tiempo real.',
+  },
+  // Calentadores Solares
+  {
+    id: 'cs-hot-water-recirc-pump',
+    category: 'Calentadores Solares',
+    name: 'Hot Water Recirculation Pump',
+    priceSinIvu: 875,
+    notes: 'Bomba para mantener el agua caliente recirculando, dando acceso inmediato a agua caliente sin esperar.',
+  },
+];
 
 export const PRODUCTS: Product[] = [
   {

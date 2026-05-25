@@ -83,6 +83,7 @@ export async function downloadCotizacionPDF(
   downPayment: number,
   ivuExemptCC2608: boolean = false,
   firmaYGana: boolean = false,
+  addOnQuantities: Record<string, number> = {},
 ): Promise<void> {
   const { consultor, cliente, selectedModes, installmentsSync, installmentsKiwi, idioma, promoMadres } = formData;
 
@@ -104,6 +105,7 @@ export async function downloadCotizacionPDF(
     items, hasSolarBundle, hasROBundle, downPayment,
     consultor, cliente, quoteNumber, date, effectiveCols, idioma,
     promoMadres, primarySyncTerm, ivuExemptCC2608, firmaYGana,
+    addOnQuantities,
   };
   const quoteElement = React.createElement(QuoteDocument, docProps);
   const quoteBlob = await pdf(quoteElement).toBlob();

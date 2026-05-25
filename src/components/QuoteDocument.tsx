@@ -2,8 +2,8 @@ import React from 'react';
 import {
   Document, Page, View, Text, Image, StyleSheet, Font,
 } from '@react-pdf/renderer';
-import { CartItem, PaymentMode, ConsultorInfo, ClienteInfo, Idioma } from '../types';
-import { MODE_LABELS } from '../constants';
+import { CartItem, PaymentMode, ConsultorInfo, ClienteInfo, Idioma, AddOnCategory } from '../types';
+import { MODE_LABELS, ADD_ONS, addOnPriceConIvu } from '../constants';
 import { MADRES_DISCOUNT_WATER } from '../lib/promoMadres';
 
 // Registra fuente con simbolos meteorologicos (⛈ ⚡ ☁ ☀ ♥ ❄ ☂) para usarla
@@ -193,6 +193,71 @@ const s = StyleSheet.create({
   sectionTotalLbl: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: NAVY, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionTotalVal: { fontFamily: 'Helvetica-Bold', fontSize: 15 },
 
+  // Add-Ons & Upgrades section
+  addonsSection: {
+    marginHorizontal: 24, marginTop: 12, marginBottom: 4,
+    borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, overflow: 'hidden',
+  },
+  addonsHeader: {
+    backgroundColor: '#1e40af', paddingVertical: 7, paddingHorizontal: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  addonsHeaderTitle: {
+    color: '#ffffff', fontSize: 10, fontFamily: 'Helvetica-Bold',
+    letterSpacing: 1, textTransform: 'uppercase',
+  },
+  addonsHeaderHint: {
+    color: '#bfdbfe', fontSize: 7, fontFamily: 'Helvetica',
+  },
+  addonsCategoryRow: {
+    backgroundColor: '#e0e7ef', paddingVertical: 3, paddingHorizontal: 10,
+    borderTopWidth: 0.5, borderTopColor: '#cbd5e1',
+  },
+  addonsCategoryText: {
+    color: '#1e293b', fontSize: 8, fontFamily: 'Helvetica-Bold',
+    letterSpacing: 0.8, textTransform: 'uppercase',
+  },
+  addonsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 5, paddingHorizontal: 10,
+    borderTopWidth: 0.3, borderTopColor: '#e2e8f0',
+  },
+  addonsRowAlt: {
+    backgroundColor: '#f8fafc',
+  },
+  addonsName: {
+    flex: 1, fontSize: 8.5, color: '#0f172a', fontFamily: 'Helvetica-Bold',
+  },
+  addonsQty: {
+    width: 28, textAlign: 'center', fontSize: 8.5, color: '#475569', fontFamily: 'Helvetica',
+  },
+  addonsUnit: {
+    width: 60, textAlign: 'right', fontSize: 8.5, color: '#475569', fontFamily: 'Helvetica',
+  },
+  addonsLine: {
+    width: 70, textAlign: 'right', fontSize: 9, color: '#1e40af', fontFamily: 'Helvetica-Bold',
+  },
+  addonsNotes: {
+    paddingHorizontal: 10, paddingBottom: 4, paddingTop: 1,
+    fontSize: 6.5, color: '#64748b', fontFamily: 'Helvetica',
+    fontStyle: 'italic', lineHeight: 1.3,
+  },
+  addonsFreeBadge: {
+    color: '#059669', fontFamily: 'Helvetica-Bold',
+  },
+  addonsTotalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#0f172a', paddingVertical: 7, paddingHorizontal: 12,
+    borderTopWidth: 1, borderTopColor: '#1e40af',
+  },
+  addonsTotalLabel: {
+    color: '#bfdbfe', fontSize: 9, fontFamily: 'Helvetica-Bold',
+    letterSpacing: 0.5, textTransform: 'uppercase',
+  },
+  addonsTotalValue: {
+    color: '#ffffff', fontSize: 12, fontFamily: 'Helvetica-Bold',
+  },
+
   // Madres banner
   madresBanner: {
     marginHorizontal: 24, marginTop: 10, marginBottom: 4,
@@ -299,6 +364,8 @@ export interface QuoteDocumentProps {
   firmaYGana?: boolean;
   /** Kept for API compatibility — not used in section layout */
   primarySyncTerm?: 18 | 61;
+  /** Add-Ons & Upgrades seleccionados (addOnId -> qty); precios sumados con IVU 11.5% */
+  addOnQuantities?: Record<string, number>;
 }
 
 const LOGO = '/windmar-water.png';
@@ -600,7 +667,17 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
   consultor, cliente, quoteNumber, date, effectiveCols, idioma, promoMadres,
   ivuExemptCC2608 = false,
   firmaYGana = false,
+  addOnQuantities = {},
 }) => {
+  // Add-Ons seleccionados: filtra los que tienen qty > 0, agrupa por categoria
+  const selectedAddOns = ADD_ONS
+    .map(a => ({ ...a, qty: addOnQuantities[a.id] || 0 }))
+    .filter(a => a.qty > 0);
+  const addOnsTotalConIvu = selectedAddOns.reduce(
+    (sum, a) => sum + addOnPriceConIvu(a.priceSinIvu) * a.qty,
+    0,
+  );
+  const addOnCategoriesPresent = Array.from(new Set(selectedAddOns.map(a => a.category))) as AddOnCategory[];
   // Solo activamos el banner si hay cisternas en el carrito Y el flag esta on
   const hasCisternasInCart = items.some(it => it.product.installPercent !== undefined);
   const cc2608Active = ivuExemptCC2608 && hasCisternasInCart;
@@ -745,6 +822,62 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
             firmaYGana={firmaYGana}
           />
         ))}
+
+        {/* ADD-ONS & UPGRADES — solo si hay al menos un add-on seleccionado */}
+        {selectedAddOns.length > 0 && (
+          <View style={s.addonsSection} wrap={false}>
+            <View style={s.addonsHeader}>
+              <Text style={s.addonsHeaderTitle}>
+                {t('Add-Ons & Upgrades', 'Add-Ons & Upgrades', idioma)}
+              </Text>
+              <Text style={s.addonsHeaderHint}>
+                {t('IVU 11.5% incluido · cargo unico', 'Tax 11.5% included · one-time charge', idioma)}
+              </Text>
+            </View>
+
+            {addOnCategoriesPresent.map(cat => {
+              const rows = selectedAddOns.filter(a => a.category === cat);
+              return (
+                <View key={cat}>
+                  <View style={s.addonsCategoryRow}>
+                    <Text style={s.addonsCategoryText}>{cat}</Text>
+                  </View>
+                  {rows.map((a, i) => {
+                    const unitConIvu = addOnPriceConIvu(a.priceSinIvu);
+                    const lineTotal = unitConIvu * a.qty;
+                    const isFree = a.priceSinIvu === 0;
+                    return (
+                      <View key={a.id}>
+                        <View style={[s.addonsRow, i % 2 === 1 ? s.addonsRowAlt : {}]}>
+                          <Text style={s.addonsName}>{a.name}</Text>
+                          <Text style={s.addonsQty}>×{a.qty}</Text>
+                          <Text style={s.addonsUnit}>
+                            {isFree
+                              ? t('Sin cargo', 'No charge', idioma)
+                              : fmt(unitConIvu)}
+                          </Text>
+                          <Text style={[s.addonsLine, isFree ? s.addonsFreeBadge : {}]}>
+                            {isFree ? '—' : fmt(lineTotal)}
+                          </Text>
+                        </View>
+                        {a.notes && (
+                          <Text style={s.addonsNotes}>{a.notes}</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })}
+
+            <View style={s.addonsTotalRow}>
+              <Text style={s.addonsTotalLabel}>
+                {t('Subtotal Add-Ons (con IVU)', 'Add-Ons Subtotal (with tax)', idioma)}
+              </Text>
+              <Text style={s.addonsTotalValue}>{fmt(addOnsTotalConIvu)}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Madres — banner con corazones (sólo cuando promo activa) */}
         {promoMadres && (

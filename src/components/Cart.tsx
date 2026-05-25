@@ -1,8 +1,8 @@
-import React from 'react';
-import { FileDown, Trash2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { FileDown, Trash2, ChevronDown, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CartItem, PaymentMode } from '../types';
-import { MODE_LABELS } from '../constants';
+import { CartItem, PaymentMode, AddOn, AddOnCategory } from '../types';
+import { MODE_LABELS, ADD_ONS, addOnPriceConIvu } from '../constants';
 
 interface CartProps {
   items: CartItem[];
@@ -16,7 +16,23 @@ interface CartProps {
   onRemoveItem: (id: string) => void;
   onClear: () => void;
   onPDF: () => void;
+  // Add-Ons & Upgrades
+  addOnQuantities: Record<string, number>;
+  onAddOnQtyChange: (next: Record<string, number>) => void;
 }
+
+// Orden visual fijo de categorias de add-ons
+const ADDON_CATEGORIES: AddOnCategory[] = [
+  'Punto de Entrada',
+  'Punto de Uso',
+  'Cisternas y Bombas',
+  'Calentadores Solares',
+];
+
+const ADDONS_BY_CATEGORY: Record<AddOnCategory, AddOn[]> = ADDON_CATEGORIES.reduce((acc, cat) => {
+  acc[cat] = ADD_ONS.filter(a => a.category === cat);
+  return acc;
+}, {} as Record<AddOnCategory, AddOn[]>);
 
 const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
@@ -137,14 +153,52 @@ export function Cart({
   items, mode, setMode, syncTerm, setSyncTerm,
   downPayment, setDownPayment,
   onUpdateQty, onRemoveItem, onClear, onPDF,
+  addOnQuantities, onAddOnQtyChange,
 }: CartProps) {
 
-  const subtotal = items.reduce((sum, item) => {
+  const [addOnsOpen, setAddOnsOpen] = useState(false);
+
+  const productsSubtotal = items.reduce((sum, item) => {
     const p = getItemPrice(item, mode, syncTerm) ?? 0;
     return sum + p * item.quantity;
   }, 0);
 
   const isMonthly = mode === 'synchrony';
+
+  // Add-Ons: subtotal con IVU (los precios en la lista son SIN IVU)
+  const addOnsSubtotal = useMemo(() => {
+    return ADD_ONS.reduce((sum, a) => {
+      const qty = addOnQuantities[a.id] || 0;
+      return sum + addOnPriceConIvu(a.priceSinIvu) * qty;
+    }, 0);
+  }, [addOnQuantities]);
+
+  // Cantidad total de add-ons seleccionados (para badge del acordeon)
+  const addOnsSelectedCount = useMemo(
+    () => Object.values(addOnQuantities).reduce((s, q) => s + (q > 0 ? 1 : 0), 0),
+    [addOnQuantities],
+  );
+
+  // Add-ons NO se suman al monthly (siempre van como cargo unico)
+  const subtotal = isMonthly ? productsSubtotal : productsSubtotal + addOnsSubtotal;
+
+  const updateAddOn = (id: string, delta: number) => {
+    const curr = addOnQuantities[id] || 0;
+    const next = Math.max(0, curr + delta);
+    const updated = { ...addOnQuantities };
+    if (next === 0) delete updated[id]; else updated[id] = next;
+    onAddOnQtyChange(updated);
+  };
+  const toggleAddOn = (id: string) => {
+    const curr = addOnQuantities[id] || 0;
+    if (curr > 0) {
+      const updated = { ...addOnQuantities };
+      delete updated[id];
+      onAddOnQtyChange(updated);
+    } else {
+      onAddOnQtyChange({ ...addOnQuantities, [id]: 1 });
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -228,7 +282,7 @@ export function Cart({
       </div>
 
       {/* Items */}
-      <div className="px-4 sm:px-5 py-3 space-y-2.5 max-h-[55vh] overflow-y-auto">
+      <div className="px-4 sm:px-5 py-3 space-y-2.5 max-h-[40vh] overflow-y-auto">
         {items.map(item => (
           <ItemRow
             key={item.product.id}
@@ -241,21 +295,178 @@ export function Cart({
         ))}
       </div>
 
+      {/* Add-Ons & Upgrades — acordeon */}
+      <div className="border-t border-windmar-blue-light/30 dark:border-white/10">
+        <button
+          type="button"
+          onClick={() => setAddOnsOpen(o => !o)}
+          className="w-full px-4 sm:px-5 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Plus className="w-4 h-4 text-windmar-blue" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+              Add-Ons &amp; Upgrades
+            </span>
+            {addOnsSelectedCount > 0 && (
+              <span className="bg-windmar-blue text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {addOnsSelectedCount}
+              </span>
+            )}
+          </span>
+          <span className="flex items-center gap-2">
+            {addOnsSubtotal > 0 && (
+              <span className="text-xs font-mono font-bold text-windmar-blue dark:text-windmar-blue-light">
+                +{fmt(addOnsSubtotal)}
+              </span>
+            )}
+            <ChevronDown
+              className={`w-4 h-4 text-slate-400 transition-transform ${addOnsOpen ? 'rotate-180' : ''}`}
+            />
+          </span>
+        </button>
+
+        <AnimatePresence initial={false}>
+          {addOnsOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 sm:px-5 pb-3 max-h-[40vh] overflow-y-auto space-y-3">
+                <p className="text-[10px] italic text-slate-400 leading-relaxed">
+                  Precios mostrados con IVU 11.5% incluido. Lista oficial sin IVU; ver tabla interna para detalle.
+                </p>
+
+                {ADDON_CATEGORIES.map(cat => (
+                  <div key={cat} className="space-y-1.5">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-windmar-blue-dark dark:text-windmar-blue-light">
+                      {cat}
+                    </p>
+                    {ADDONS_BY_CATEGORY[cat].map(addOn => {
+                      const qty = addOnQuantities[addOn.id] || 0;
+                      const selected = qty > 0;
+                      const precioConIvu = addOnPriceConIvu(addOn.priceSinIvu);
+                      const isFree = addOn.priceSinIvu === 0;
+                      return (
+                        <div
+                          key={addOn.id}
+                          className={`rounded-lg border p-2.5 transition-colors ${
+                            selected
+                              ? 'border-windmar-blue bg-windmar-blue/5 dark:bg-windmar-blue/15'
+                              : 'border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f1215]'
+                          }`}
+                        >
+                          <label className="flex items-start gap-2.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => toggleAddOn(addOn.id)}
+                              className="mt-0.5 w-4 h-4 accent-windmar-blue cursor-pointer flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs font-bold text-slate-900 dark:text-[#e8eaed] leading-tight">
+                                  {addOn.name}
+                                </span>
+                                <span className={`text-xs font-mono font-bold whitespace-nowrap ${
+                                  isFree
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : 'text-windmar-blue dark:text-windmar-blue-light'
+                                }`}>
+                                  {isFree ? 'Sin cargo' : fmt(precioConIvu)}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                                {addOn.notes}
+                              </p>
+                            </div>
+                          </label>
+                          {selected && !isFree && (
+                            <div className="mt-2 flex items-center gap-1.5 pl-6">
+                              <button
+                                type="button"
+                                onClick={() => updateAddOn(addOn.id, -1)}
+                                className="w-6 h-6 rounded-md bg-slate-100 dark:bg-white/10 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-sm font-bold leading-none"
+                              >
+                                −
+                              </button>
+                              <span className="text-xs font-bold w-5 text-center text-slate-900 dark:text-[#e8eaed]">
+                                {qty}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateAddOn(addOn.id, 1)}
+                                className="w-6 h-6 rounded-md bg-slate-100 dark:bg-white/10 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-sm font-bold leading-none"
+                              >
+                                +
+                              </button>
+                              <span className="ml-auto text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                                Subt. {fmt(precioConIvu * qty)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Resumen de compra */}
       <div className="px-4 sm:px-5 py-3 bg-slate-50 dark:bg-white/5 border-t border-windmar-blue-light/30 dark:border-white/10 space-y-2.5">
         <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">
           Resumen de compra
         </p>
 
-        {/* Subtotal */}
-        <div className="flex justify-between items-baseline">
-          <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-            {isMonthly ? `Subtotal mensual (${syncTerm}m)` : 'Subtotal'}
-          </span>
-          <span className="text-base font-black font-mono text-slate-900 dark:text-[#e8eaed]">
-            {fmt(subtotal)}{isMonthly && <span className="text-xs">/mes</span>}
-          </span>
-        </div>
+        {/* Subtotal — desglosado si hay add-ons */}
+        {addOnsSubtotal > 0 ? (
+          <>
+            <div className="flex justify-between items-baseline">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                {isMonthly ? `Productos (${syncTerm}m)` : 'Productos'}
+              </span>
+              <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                {fmt(productsSubtotal)}{isMonthly && <span className="text-[10px]">/mes</span>}
+              </span>
+            </div>
+            <div className="flex justify-between items-baseline">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                Add-ons (cargo unico)
+              </span>
+              <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                +{fmt(addOnsSubtotal)}
+              </span>
+            </div>
+            {isMonthly && (
+              <p className="text-[9px] italic text-slate-400 -mt-1">
+                Los add-ons se cobran como cargo unico aparte de las cuotas.
+              </p>
+            )}
+            <div className="flex justify-between items-baseline pt-1 border-t border-slate-200 dark:border-white/5">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {isMonthly ? `Subtotal mensual (${syncTerm}m)` : 'Subtotal'}
+              </span>
+              <span className="text-base font-black font-mono text-slate-900 dark:text-[#e8eaed]">
+                {fmt(subtotal)}{isMonthly && <span className="text-xs">/mes</span>}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between items-baseline">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+              {isMonthly ? `Subtotal mensual (${syncTerm}m)` : 'Subtotal'}
+            </span>
+            <span className="text-base font-black font-mono text-slate-900 dark:text-[#e8eaed]">
+              {fmt(subtotal)}{isMonthly && <span className="text-xs">/mes</span>}
+            </span>
+          </div>
+        )}
 
         {/* Pronto pago input */}
         <div className="flex items-center gap-2">
