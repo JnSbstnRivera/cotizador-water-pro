@@ -269,26 +269,49 @@ const s = StyleSheet.create({
     color: '#e2e8f0', fontSize: 8.5, fontFamily: 'Helvetica-Bold',
   },
 
-  // Gran Total (productos + add-ons combinados, solo modos no-monthly)
-  grandTotalRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 4, paddingVertical: 9, paddingHorizontal: 14,
-    backgroundColor: '#0f172a', borderRadius: 6, borderWidth: 2,
+  // TOTAL final — bloque al final del PDF, un total por modo
+  finalTotalSection: {
+    marginHorizontal: 24, marginTop: 14, marginBottom: 4,
+    borderWidth: 1.5, borderColor: '#0f172a', borderRadius: 8, overflow: 'hidden',
   },
-  grandTotalLbl: {
-    color: '#ffffff', fontSize: 11, fontFamily: 'Helvetica-Bold',
+  finalTotalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: '#ffffff',
+    borderLeftWidth: 4,
+    borderBottomWidth: 0.5, borderBottomColor: '#e2e8f0',
+  },
+  finalTotalLeft: {
+    flex: 1,
+  },
+  finalTotalMode: {
+    fontSize: 11, color: '#0f172a', fontFamily: 'Helvetica-Bold',
     letterSpacing: 0.6, textTransform: 'uppercase',
   },
-  grandTotalVal: {
-    fontSize: 16, fontFamily: 'Helvetica-Bold',
+  finalTotalSub: {
+    fontSize: 8, color: '#64748b', fontFamily: 'Helvetica',
+    marginTop: 1,
   },
-  grandTotalNote: {
-    marginTop: 4, paddingVertical: 6, paddingHorizontal: 12,
-    backgroundColor: '#fef3c7', borderRadius: 4,
-    borderLeftWidth: 3, borderLeftColor: '#f59e0b',
+  finalTotalRight: {
+    alignItems: 'flex-end',
   },
-  grandTotalNoteText: {
-    color: '#78350f', fontSize: 9, fontFamily: 'Helvetica-Bold',
+  finalTotalValue: {
+    fontSize: 18, fontFamily: 'Helvetica-Bold',
+  },
+  finalTotalValueMonthly: {
+    fontSize: 15, fontFamily: 'Helvetica-Bold',
+  },
+  finalTotalAddOnNote: {
+    fontSize: 8, color: '#64748b', fontFamily: 'Helvetica-Bold',
+    marginTop: 1,
+  },
+  finalTotalFooter: {
+    backgroundColor: '#0f172a', paddingVertical: 6, paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  finalTotalFooterLbl: {
+    color: '#ffffff', fontSize: 10, fontFamily: 'Helvetica-Bold',
+    letterSpacing: 2,
   },
 
   // Madres banner
@@ -403,6 +426,86 @@ export interface QuoteDocumentProps {
 
 const LOGO = '/windmar-water.png';
 
+/**
+ * Helper puro: calcula el totalFinal de productos para un modo dado.
+ * Replica la logica que esta dentro de ModeSection para que el padre tambien
+ * pueda saber cuanto es el total (necesario para mostrar TOTAL combinado al
+ * final del PDF). Se mantiene en sync con la logica de ModeSection.
+ */
+interface ComputeArgs {
+  col: EffectiveCol;
+  items: CartItem[];
+  downPayment: number;
+  hasSolarBundle: boolean;
+  hasROBundle: boolean;
+  promoMadres: boolean;
+  ivuExemptCC2608: boolean;
+  firmaYGana: boolean;
+}
+
+function computeModeTotal({
+  col, items, downPayment, hasSolarBundle, hasROBundle, promoMadres, ivuExemptCC2608, firmaYGana,
+}: ComputeArgs): number {
+  const IVU_RATE = 0.115;
+  const inst = col.installments ?? 18;
+
+  const rows = items.map(item => {
+    const unitPrice = col.getPrice(item);
+    let baseSinIvuLine = 0;
+    let unitBaseSinIvu = 0;
+    let ivuMult = 1;
+    let eligibleCC2608 = false;
+    let catalogTotalFinPerUnit = 0;
+    if (unitPrice != null) {
+      if (col.isMonthly || col.key === 'kiwi') {
+        unitBaseSinIvu = item.product.synchronySinIvu
+          ?? ((col.isMonthly ? unitPrice * inst : unitPrice) / (1 + IVU_RATE));
+      } else {
+        unitBaseSinIvu = item.product.cashSinIvu ?? (unitPrice / (1 + IVU_RATE));
+      }
+      baseSinIvuLine = unitBaseSinIvu * item.quantity;
+      catalogTotalFinPerUnit = (item.product.synchronySinIvu ?? unitBaseSinIvu) * (1 + IVU_RATE);
+      if (ivuExemptCC2608 && item.product.installPercent !== undefined) {
+        ivuMult = item.product.installPercent;
+        eligibleCC2608 = true;
+      }
+    }
+    const effectiveUnitTotal = unitBaseSinIvu * (1 + ivuMult * IVU_RATE);
+    let effectiveMonthlyPerUnit = 0;
+    if (col.isMonthly && unitPrice != null) {
+      if (eligibleCC2608 && catalogTotalFinPerUnit > 0) {
+        effectiveMonthlyPerUnit = Math.ceil(unitPrice * (effectiveUnitTotal / catalogTotalFinPerUnit));
+      } else {
+        effectiveMonthlyPerUnit = unitPrice;
+      }
+    }
+    return { item, baseSinIvuLine, ivuMult, effectiveMonthlyPerUnit };
+  });
+
+  const subtotalSinIvu = rows.reduce((s, r) => s + r.baseSinIvuLine, 0);
+  let preIvuTotal = 0;
+  if (hasSolarBundle) preIvuTotal += 500;
+  if (firmaYGana) preIvuTotal += 500;
+  const roItem = items.find(i => i.product.id === 'trat-ro');
+  const roHasPrice = roItem != null && col.getPrice(roItem) != null;
+  if (hasROBundle && roHasPrice) preIvuTotal += 1000;
+  if (promoMadres) preIvuTotal += MADRES_DISCOUNT_WATER;
+
+  const discRatio = subtotalSinIvu > 0 ? Math.min(1, preIvuTotal / subtotalSinIvu) : 0;
+
+  let totalWithIvuPreDownPayment = 0;
+  for (const r of rows) {
+    const effBase = r.baseSinIvuLine * (1 - discRatio);
+    totalWithIvuPreDownPayment += effBase + effBase * r.ivuMult * IVU_RATE;
+  }
+
+  if (col.isMonthly) {
+    const totalMonthlyPreDownPayment = rows.reduce((s, r) => s + r.effectiveMonthlyPerUnit * r.item.quantity, 0);
+    return Math.max(0, totalMonthlyPreDownPayment - (preIvuTotal / inst) - (downPayment / inst));
+  }
+  return Math.max(0, totalWithIvuPreDownPayment - downPayment);
+}
+
 // ─── ModeSection ───────────────────────────────────────────────────────────
 
 interface ModeSectionProps {
@@ -415,17 +518,10 @@ interface ModeSectionProps {
   idioma: Idioma;
   ivuExemptCC2608: boolean;
   firmaYGana: boolean;
-  /** Total Add-Ons SIN IVU (cargo unico, se suma al gran total) */
-  addOnsSinIvu: number;
-  /** IVU 11.5% sobre el total de Add-Ons */
-  addOnsIvu: number;
-  /** Total Add-Ons CON IVU = addOnsSinIvu + addOnsIvu */
-  addOnsConIvu: number;
 }
 
 const ModeSection: React.FC<ModeSectionProps> = ({
   col, items, hasSolarBundle, hasROBundle, downPayment, promoMadres, idioma, ivuExemptCC2608, firmaYGana,
-  addOnsSinIvu, addOnsIvu, addOnsConIvu,
 }) => {
   const IVU_RATE = 0.115;
   const inst = col.installments ?? 18;
@@ -682,60 +778,20 @@ const ModeSection: React.FC<ModeSectionProps> = ({
             <Text style={s.ivuLbl}>{ivuLabel}</Text>
             <Text style={s.ivuVal}>{fmt(ivu)}</Text>
           </View>
-          {addOnsConIvu > 0 && (
-            <>
-              <View style={s.ivuLine}>
-                <Text style={s.ivuLbl}>{t('Add-Ons sin IVU', 'Add-Ons (no tax)', idioma)}</Text>
-                <Text style={s.ivuVal}>{fmt(addOnsSinIvu)}</Text>
-              </View>
-              <View style={s.ivuLine}>
-                <Text style={s.ivuLbl}>{t('IVU 11.5% sobre Add-Ons', 'Tax 11.5% on Add-Ons', idioma)}</Text>
-                <Text style={s.ivuVal}>{fmt(addOnsIvu)}</Text>
-              </View>
-            </>
-          )}
         </View>
       )}
 
-      {/* Section total — productos solo (sin add-ons) */}
+      {/* Section total — solo productos (add-ons aparte abajo) */}
       <View style={[s.sectionTotal, { backgroundColor: col.lightBg }]}>
         <Text style={s.sectionTotalLbl}>
           {col.isMonthly
-            ? t(`Total productos ${col.installments}m`, `Products total ${col.installments}m`, idioma)
-            : t('Total productos con IVU', 'Products total with tax', idioma)}
+            ? t(`Total ${col.installments}m`, `Total ${col.installments}m`, idioma)
+            : t('Total con IVU', 'Total with tax', idioma)}
         </Text>
         <Text style={[s.sectionTotalVal, { color: col.color }]}>
           {fmt(totalFinal)}{col.isMonthly && t('/mes', '/mo', idioma)}
         </Text>
       </View>
-
-      {/* GRAN TOTAL — productos + add-ons (solo si hay add-ons) */}
-      {addOnsConIvu > 0 && (
-        <>
-          {col.isMonthly ? (
-            // Modo mensual: muestra mensualidad + cargo unico add-ons (no se mezclan)
-            <View style={s.grandTotalNote}>
-              <Text style={s.grandTotalNoteText}>
-                {t(
-                  `+ Add-Ons (cargo único con IVU): ${fmt(addOnsConIvu)}`,
-                  `+ Add-Ons (one-time with tax): ${fmt(addOnsConIvu)}`,
-                  idioma,
-                )}
-              </Text>
-            </View>
-          ) : (
-            // Modo cash/oriental/kiwi: suma directa al gran total
-            <View style={[s.grandTotalRow, { borderColor: col.color }]}>
-              <Text style={s.grandTotalLbl}>
-                {t('GRAN TOTAL con IVU', 'GRAND TOTAL with tax', idioma)}
-              </Text>
-              <Text style={[s.grandTotalVal, { color: col.color }]}>
-                {fmt(totalFinal + addOnsConIvu)}
-              </Text>
-            </View>
-          )}
-        </>
-      )}
     </View>
   );
 };
@@ -763,6 +819,24 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
     0,
   );
   const addOnCategoriesPresent = Array.from(new Set(selectedAddOns.map(a => a.category))) as AddOnCategory[];
+
+  // Totales finales por modo (productos + add-ons) para el bloque TOTAL al final del PDF.
+  // En modos monthly el total NO incluye add-ons (son cargo unico aparte); se muestra como
+  // linea separada debajo del total mensual del modo.
+  const modeTotals = effectiveCols.map(col => {
+    const productsTotal = computeModeTotal({
+      col, items, downPayment, hasSolarBundle, hasROBundle, promoMadres,
+      ivuExemptCC2608: ivuExemptCC2608 && items.some(it => it.product.installPercent !== undefined),
+      firmaYGana,
+    });
+    return {
+      col,
+      productsTotal,
+      addOnsTotal: addOnsTotalConIvu,
+      // En non-monthly el total combinado es productos + add-ons. En monthly se muestran aparte.
+      combined: col.isMonthly ? productsTotal : productsTotal + addOnsTotalConIvu,
+    };
+  });
   // Solo activamos el banner si hay cisternas en el carrito Y el flag esta on
   const hasCisternasInCart = items.some(it => it.product.installPercent !== undefined);
   const cc2608Active = ivuExemptCC2608 && hasCisternasInCart;
@@ -905,9 +979,6 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
             idioma={idioma}
             ivuExemptCC2608={cc2608Active}
             firmaYGana={firmaYGana}
-            addOnsSinIvu={addOnsTotalSinIvu}
-            addOnsIvu={addOnsTotalIvuOnly}
-            addOnsConIvu={addOnsTotalConIvu}
           />
         ))}
 
@@ -979,6 +1050,55 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
             </View>
           </View>
         )}
+
+        {/* TOTAL FINAL — un solo bloque al final, suma productos + add-ons por modo */}
+        <View style={s.finalTotalSection} wrap={false}>
+          {modeTotals.map(({ col, productsTotal, addOnsTotal, combined }) => (
+            <View key={col.key} style={[s.finalTotalRow, { borderLeftColor: col.color }]}>
+              <View style={s.finalTotalLeft}>
+                <Text style={s.finalTotalMode}>{col.label}</Text>
+                {col.isMonthly ? (
+                  <Text style={s.finalTotalSub}>
+                    {t(
+                      `Mensualidad ${col.installments}m + Add-Ons cargo único`,
+                      `Monthly ${col.installments}m + Add-Ons one-time`,
+                      idioma,
+                    )}
+                  </Text>
+                ) : (
+                  <Text style={s.finalTotalSub}>
+                    {addOnsTotal > 0
+                      ? t('Productos + Add-Ons (todo con IVU)', 'Products + Add-Ons (all with tax)', idioma)
+                      : t('Productos (con IVU)', 'Products (with tax)', idioma)}
+                  </Text>
+                )}
+              </View>
+              <View style={s.finalTotalRight}>
+                {col.isMonthly ? (
+                  <>
+                    <Text style={[s.finalTotalValueMonthly, { color: col.color }]}>
+                      {fmt(productsTotal)}{t('/mes', '/mo', idioma)}
+                    </Text>
+                    {addOnsTotal > 0 && (
+                      <Text style={s.finalTotalAddOnNote}>
+                        + {fmt(addOnsTotal)} {t('cargo único', 'one-time', idioma)}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={[s.finalTotalValue, { color: col.color }]}>
+                    {fmt(combined)}
+                  </Text>
+                )}
+              </View>
+            </View>
+          ))}
+          <View style={s.finalTotalFooter}>
+            <Text style={s.finalTotalFooterLbl}>
+              {t('TOTAL', 'TOTAL', idioma)}
+            </Text>
+          </View>
+        </View>
 
         {/* Madres — banner con corazones (sólo cuando promo activa) */}
         {promoMadres && (
