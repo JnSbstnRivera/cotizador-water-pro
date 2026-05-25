@@ -257,6 +257,39 @@ const s = StyleSheet.create({
   addonsTotalValue: {
     color: '#ffffff', fontSize: 12, fontFamily: 'Helvetica-Bold',
   },
+  addonsBreakdownRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#1e293b', paddingVertical: 4, paddingHorizontal: 12,
+    borderTopWidth: 0.5, borderTopColor: '#334155',
+  },
+  addonsBreakdownLbl: {
+    color: '#cbd5e1', fontSize: 8, fontFamily: 'Helvetica',
+  },
+  addonsBreakdownVal: {
+    color: '#e2e8f0', fontSize: 8.5, fontFamily: 'Helvetica-Bold',
+  },
+
+  // Gran Total (productos + add-ons combinados, solo modos no-monthly)
+  grandTotalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 4, paddingVertical: 9, paddingHorizontal: 14,
+    backgroundColor: '#0f172a', borderRadius: 6, borderWidth: 2,
+  },
+  grandTotalLbl: {
+    color: '#ffffff', fontSize: 11, fontFamily: 'Helvetica-Bold',
+    letterSpacing: 0.6, textTransform: 'uppercase',
+  },
+  grandTotalVal: {
+    fontSize: 16, fontFamily: 'Helvetica-Bold',
+  },
+  grandTotalNote: {
+    marginTop: 4, paddingVertical: 6, paddingHorizontal: 12,
+    backgroundColor: '#fef3c7', borderRadius: 4,
+    borderLeftWidth: 3, borderLeftColor: '#f59e0b',
+  },
+  grandTotalNoteText: {
+    color: '#78350f', fontSize: 9, fontFamily: 'Helvetica-Bold',
+  },
 
   // Madres banner
   madresBanner: {
@@ -382,10 +415,17 @@ interface ModeSectionProps {
   idioma: Idioma;
   ivuExemptCC2608: boolean;
   firmaYGana: boolean;
+  /** Total Add-Ons SIN IVU (cargo unico, se suma al gran total) */
+  addOnsSinIvu: number;
+  /** IVU 11.5% sobre el total de Add-Ons */
+  addOnsIvu: number;
+  /** Total Add-Ons CON IVU = addOnsSinIvu + addOnsIvu */
+  addOnsConIvu: number;
 }
 
 const ModeSection: React.FC<ModeSectionProps> = ({
   col, items, hasSolarBundle, hasROBundle, downPayment, promoMadres, idioma, ivuExemptCC2608, firmaYGana,
+  addOnsSinIvu, addOnsIvu, addOnsConIvu,
 }) => {
   const IVU_RATE = 0.115;
   const inst = col.installments ?? 18;
@@ -642,20 +682,60 @@ const ModeSection: React.FC<ModeSectionProps> = ({
             <Text style={s.ivuLbl}>{ivuLabel}</Text>
             <Text style={s.ivuVal}>{fmt(ivu)}</Text>
           </View>
+          {addOnsConIvu > 0 && (
+            <>
+              <View style={s.ivuLine}>
+                <Text style={s.ivuLbl}>{t('Add-Ons sin IVU', 'Add-Ons (no tax)', idioma)}</Text>
+                <Text style={s.ivuVal}>{fmt(addOnsSinIvu)}</Text>
+              </View>
+              <View style={s.ivuLine}>
+                <Text style={s.ivuLbl}>{t('IVU 11.5% sobre Add-Ons', 'Tax 11.5% on Add-Ons', idioma)}</Text>
+                <Text style={s.ivuVal}>{fmt(addOnsIvu)}</Text>
+              </View>
+            </>
+          )}
         </View>
       )}
 
-      {/* Section total */}
+      {/* Section total — productos solo (sin add-ons) */}
       <View style={[s.sectionTotal, { backgroundColor: col.lightBg }]}>
         <Text style={s.sectionTotalLbl}>
           {col.isMonthly
-            ? t(`Total ${col.installments}m`, `Total ${col.installments}m`, idioma)
-            : t('Total con IVU', 'Total with tax', idioma)}
+            ? t(`Total productos ${col.installments}m`, `Products total ${col.installments}m`, idioma)
+            : t('Total productos con IVU', 'Products total with tax', idioma)}
         </Text>
         <Text style={[s.sectionTotalVal, { color: col.color }]}>
           {fmt(totalFinal)}{col.isMonthly && t('/mes', '/mo', idioma)}
         </Text>
       </View>
+
+      {/* GRAN TOTAL — productos + add-ons (solo si hay add-ons) */}
+      {addOnsConIvu > 0 && (
+        <>
+          {col.isMonthly ? (
+            // Modo mensual: muestra mensualidad + cargo unico add-ons (no se mezclan)
+            <View style={s.grandTotalNote}>
+              <Text style={s.grandTotalNoteText}>
+                {t(
+                  `+ Add-Ons (cargo único con IVU): ${fmt(addOnsConIvu)}`,
+                  `+ Add-Ons (one-time with tax): ${fmt(addOnsConIvu)}`,
+                  idioma,
+                )}
+              </Text>
+            </View>
+          ) : (
+            // Modo cash/oriental/kiwi: suma directa al gran total
+            <View style={[s.grandTotalRow, { borderColor: col.color }]}>
+              <Text style={s.grandTotalLbl}>
+                {t('GRAN TOTAL con IVU', 'GRAND TOTAL with tax', idioma)}
+              </Text>
+              <Text style={[s.grandTotalVal, { color: col.color }]}>
+                {fmt(totalFinal + addOnsConIvu)}
+              </Text>
+            </View>
+          )}
+        </>
+      )}
     </View>
   );
 };
@@ -673,6 +753,11 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
   const selectedAddOns = ADD_ONS
     .map(a => ({ ...a, qty: addOnQuantities[a.id] || 0 }))
     .filter(a => a.qty > 0);
+  const addOnsTotalSinIvu = selectedAddOns.reduce(
+    (sum, a) => sum + a.priceSinIvu * a.qty,
+    0,
+  );
+  const addOnsTotalIvuOnly = Math.round(addOnsTotalSinIvu * 0.115 * 100) / 100;
   const addOnsTotalConIvu = selectedAddOns.reduce(
     (sum, a) => sum + addOnPriceConIvu(a.priceSinIvu) * a.qty,
     0,
@@ -820,6 +905,9 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
             idioma={idioma}
             ivuExemptCC2608={cc2608Active}
             firmaYGana={firmaYGana}
+            addOnsSinIvu={addOnsTotalSinIvu}
+            addOnsIvu={addOnsTotalIvuOnly}
+            addOnsConIvu={addOnsTotalConIvu}
           />
         ))}
 
@@ -870,9 +958,22 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
               );
             })}
 
+            {/* Desglose IVU del subtotal de Add-Ons */}
+            <View style={s.addonsBreakdownRow}>
+              <Text style={s.addonsBreakdownLbl}>
+                {t('Subtotal Add-Ons sin IVU', 'Add-Ons subtotal (no tax)', idioma)}
+              </Text>
+              <Text style={s.addonsBreakdownVal}>{fmt(addOnsTotalSinIvu)}</Text>
+            </View>
+            <View style={s.addonsBreakdownRow}>
+              <Text style={s.addonsBreakdownLbl}>
+                {t('IVU 11.5% sobre Add-Ons', 'Tax 11.5% on Add-Ons', idioma)}
+              </Text>
+              <Text style={s.addonsBreakdownVal}>{fmt(addOnsTotalIvuOnly)}</Text>
+            </View>
             <View style={s.addonsTotalRow}>
               <Text style={s.addonsTotalLabel}>
-                {t('Subtotal Add-Ons (con IVU)', 'Add-Ons Subtotal (with tax)', idioma)}
+                {t('Total Add-Ons con IVU', 'Add-Ons total with tax', idioma)}
               </Text>
               <Text style={s.addonsTotalValue}>{fmt(addOnsTotalConIvu)}</Text>
             </View>
