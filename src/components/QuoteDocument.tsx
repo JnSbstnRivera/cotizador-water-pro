@@ -269,49 +269,51 @@ const s = StyleSheet.create({
     color: '#e2e8f0', fontSize: 8.5, fontFamily: 'Helvetica-Bold',
   },
 
-  // TOTAL final — bloque al final del PDF, un total por modo
+  // TOTAL final — bloque al final del PDF, un total por modo (suave)
   finalTotalSection: {
     marginHorizontal: 24, marginTop: 14, marginBottom: 4,
-    borderWidth: 1.5, borderColor: '#0f172a', borderRadius: 8, overflow: 'hidden',
+    borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, overflow: 'hidden',
+    backgroundColor: '#f8fafc',
   },
   finalTotalRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 10, paddingHorizontal: 14,
+    paddingVertical: 11, paddingHorizontal: 14,
     backgroundColor: '#ffffff',
-    borderLeftWidth: 4,
+    borderLeftWidth: 3,
     borderBottomWidth: 0.5, borderBottomColor: '#e2e8f0',
   },
   finalTotalLeft: {
     flex: 1,
   },
   finalTotalMode: {
-    fontSize: 11, color: '#0f172a', fontFamily: 'Helvetica-Bold',
-    letterSpacing: 0.6, textTransform: 'uppercase',
+    fontSize: 10.5, color: '#1e293b', fontFamily: 'Helvetica-Bold',
+    letterSpacing: 0.5, textTransform: 'uppercase',
   },
   finalTotalSub: {
-    fontSize: 8, color: '#64748b', fontFamily: 'Helvetica',
+    fontSize: 7.5, color: '#94a3b8', fontFamily: 'Helvetica',
     marginTop: 1,
   },
   finalTotalRight: {
     alignItems: 'flex-end',
   },
   finalTotalValue: {
-    fontSize: 18, fontFamily: 'Helvetica-Bold',
+    fontSize: 16, fontFamily: 'Helvetica-Bold',
   },
   finalTotalValueMonthly: {
-    fontSize: 15, fontFamily: 'Helvetica-Bold',
+    fontSize: 13.5, fontFamily: 'Helvetica-Bold',
   },
   finalTotalAddOnNote: {
-    fontSize: 8, color: '#64748b', fontFamily: 'Helvetica-Bold',
+    fontSize: 7.5, color: '#94a3b8', fontFamily: 'Helvetica',
     marginTop: 1,
   },
   finalTotalFooter: {
-    backgroundColor: '#0f172a', paddingVertical: 6, paddingHorizontal: 14,
+    backgroundColor: '#f1f5f9', paddingVertical: 6, paddingHorizontal: 14,
     alignItems: 'center',
+    borderTopWidth: 0.5, borderTopColor: '#cbd5e1',
   },
   finalTotalFooterLbl: {
-    color: '#ffffff', fontSize: 10, fontFamily: 'Helvetica-Bold',
-    letterSpacing: 2,
+    color: '#64748b', fontSize: 9, fontFamily: 'Helvetica-Bold',
+    letterSpacing: 1.5,
   },
 
   // Madres banner
@@ -1051,7 +1053,9 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
           </View>
         )}
 
-        {/* TOTAL FINAL — un solo bloque al final, suma productos + add-ons por modo */}
+        {/* TOTAL FINAL — solo aparece cuando hay add-ons (suma productos + add-ons).
+            Si solo hay productos, el 'Total con IVU' de cada modo ya es el total final. */}
+        {addOnsTotalConIvu > 0 && (
         <View style={s.finalTotalSection} wrap={false}>
           {modeTotals.map(({ col, productsTotal, addOnsTotal, combined }) => (
             <View key={col.key} style={[s.finalTotalRow, { borderLeftColor: col.color }]}>
@@ -1099,6 +1103,7 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
             </Text>
           </View>
         </View>
+        )}
 
         {/* Madres — banner con corazones (sólo cuando promo activa) */}
         {promoMadres && (
