@@ -63,6 +63,7 @@ export interface ConsultorInfo {
   nombre: string;
   correo: string;
   telefono: string;
+  agenteTelefonico: string;   // Agente Telefónico (Lead Owner) — obligatorio
 }
 
 export interface ClienteInfo {

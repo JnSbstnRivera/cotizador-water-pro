@@ -16,6 +16,7 @@ interface ConsultorForm {
   nombre: string;
   correo: string;
   telefono: string;
+  agenteTelefonico: string;
 }
 
 interface PDFModalProps {
@@ -107,7 +108,7 @@ export function PDFModal({
     nombre: '', correo: '', telefono: '', direccion: '',
   });
   const [consultor, setConsultor] = useState<ConsultorForm>({
-    nombre: '', correo: '', telefono: '',
+    nombre: '', correo: '', telefono: '', agenteTelefonico: '',
   });
   const [selectedModes, setSelectedModes] = useState<PaymentMode[]>([initialMode]);
   const [installmentsSync, setInstallmentsSync] = useState<(18 | 61)[]>([initialSyncTerm]);
@@ -138,6 +139,12 @@ export function PDFModal({
         : 'Nombre del cliente y consultor son requeridos.');
       return;
     }
+    if (!consultor.agenteTelefonico.trim()) {
+      setError(idioma === 'en'
+        ? 'Lead Owner (call-center agent) is required.'
+        : 'Agente Telefónico (Lead Owner) es obligatorio.');
+      return;
+    }
     if (selectedModes.length === 0) {
       setError(idioma === 'en'
         ? 'Select at least one payment mode.'
@@ -152,7 +159,7 @@ export function PDFModal({
     }
     setError('');
     onGenerate({
-      consultor: { nombre: consultor.nombre, correo: consultor.correo, telefono: consultor.telefono },
+      consultor: { nombre: consultor.nombre, correo: consultor.correo, telefono: consultor.telefono, agenteTelefonico: consultor.agenteTelefonico },
       cliente:   { nombre: cliente.nombre, correo: cliente.correo, telefono: cliente.telefono, direccion: cliente.direccion },
       selectedModes,
       installmentsSync: selectedModes.includes('synchrony') ? installmentsSync : [],
@@ -268,6 +275,12 @@ export function PDFModal({
                 label={idioma === 'en' ? 'Phone' : 'Teléfono'}
                 value={consultor.telefono}
                 onChange={v => setConsultor({ ...consultor, telefono: v })}
+              />
+              <Field
+                label={idioma === 'en' ? 'Lead Owner (call-center agent) *' : 'Agente Telefónico (Lead Owner) *'}
+                value={consultor.agenteTelefonico}
+                onChange={v => setConsultor({ ...consultor, agenteTelefonico: v })}
+                colSpan={2}
               />
             </div>
           </section>

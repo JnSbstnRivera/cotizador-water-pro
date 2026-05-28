@@ -881,6 +881,10 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
               <Text style={s.partyLbl}>{t('Correo:', 'Email:', idioma)}</Text>
               <Text style={s.partyVal}>{consultor.correo || '—'}</Text>
             </View>
+            <View style={s.partyLine}>
+              <Text style={s.partyLbl}>{t('Agente Tel.:', 'Lead Owner:', idioma)}</Text>
+              <Text style={s.partyVal}>{consultor.agenteTelefonico || '—'}</Text>
+            </View>
           </View>
           <View style={s.partyCol}>
             <Text style={s.partyTitle}>{t('Cliente', 'Customer', idioma)}</Text>
