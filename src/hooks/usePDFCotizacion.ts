@@ -33,9 +33,11 @@ const CATEGORY_MARKETING_PAGE: Record<Category, number> = {
 async function fetchMasterBytes(idioma: Idioma): Promise<Uint8Array | null> {
   const filename = idioma === 'en' ? 'Master_Cotizacion_EN.pdf' : 'Master_Cotizacion_ES.pdf';
   try {
-    // cache: 'no-cache' fuerza revalidacion con el server, asi el navegador
-    // y el CDN de Vercel no sirven un PDF master viejo cacheado tras un update.
-    const res = await fetch(`/${filename}`, { cache: 'no-cache' });
+    // Cache-bust agresivo: timestamp unico en la URL fuerza al CDN de Vercel
+    // a tratar cada request como nueva, sin servir copia cacheada en el edge.
+    // cache: 'no-store' tambien impide al navegador guardar la respuesta.
+    const bust = Date.now();
+    const res = await fetch(`/${filename}?v=${bust}`, { cache: 'no-store' });
     if (!res.ok) {
       console.error(`Master PDF fetch failed: ${res.status} ${res.statusText}`);
       return null;
