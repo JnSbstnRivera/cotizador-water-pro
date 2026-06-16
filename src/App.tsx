@@ -276,12 +276,12 @@ export default function App() {
             </div>
 
             {/* Olas de agua fluyendo abajo — 2 capas (azul oscuro detras, azul claro al frente) */}
-            <div className="absolute bottom-0 left-0 w-full overflow-hidden pointer-events-none" style={{ height: 140 }}>
+            <div className="absolute bottom-0 left-0 w-full overflow-hidden pointer-events-none" style={{ height: 240 }}>
               {/* Capa de atras: azul mas oscuro, mas lenta */}
               <motion.svg
                 viewBox="0 0 2400 120"
                 preserveAspectRatio="none"
-                className="absolute bottom-0 left-0 h-[120px]"
+                className="absolute bottom-0 left-0 h-[220px]"
                 style={{ width: '200%' }}
                 animate={{ x: ['0%', '-50%'] }}
                 transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
@@ -296,7 +296,7 @@ export default function App() {
               <motion.svg
                 viewBox="0 0 2400 120"
                 preserveAspectRatio="none"
-                className="absolute bottom-0 left-0 h-[90px]"
+                className="absolute bottom-0 left-0 h-[170px]"
                 style={{ width: '200%' }}
                 animate={{ x: ['0%', '-50%'] }}
                 transition={{ duration: 11, repeat: Infinity, ease: 'linear' }}
