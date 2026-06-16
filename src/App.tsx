@@ -262,17 +262,51 @@ export default function App() {
 
               <div className="flex gap-2.5">
                 {[0, 1, 2].map(i => (
-                  <motion.div 
+                  <motion.div
                     key={i}
-                    animate={{ 
+                    animate={{
                       scale: [1, 1.4, 1],
-                      opacity: [0.3, 1, 0.3] 
+                      opacity: [0.3, 1, 0.3]
                     }}
                     transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
                     className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"
                   />
                 ))}
               </div>
+            </div>
+
+            {/* Olas de agua fluyendo abajo — 2 capas (azul oscuro detras, azul claro al frente) */}
+            <div className="absolute bottom-0 left-0 w-full overflow-hidden pointer-events-none" style={{ height: 140 }}>
+              {/* Capa de atras: azul mas oscuro, mas lenta */}
+              <motion.svg
+                viewBox="0 0 2400 120"
+                preserveAspectRatio="none"
+                className="absolute bottom-0 left-0 h-[120px]"
+                style={{ width: '200%' }}
+                animate={{ x: ['0%', '-50%'] }}
+                transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
+              >
+                <path
+                  d="M0,60 C200,20 400,100 600,60 C800,20 1000,100 1200,60 C1400,20 1600,100 1800,60 C2000,20 2200,100 2400,60 L2400,120 L0,120 Z"
+                  fill="#1D429B"
+                  opacity="0.55"
+                />
+              </motion.svg>
+              {/* Capa al frente: azul claro, mas rapida */}
+              <motion.svg
+                viewBox="0 0 2400 120"
+                preserveAspectRatio="none"
+                className="absolute bottom-0 left-0 h-[90px]"
+                style={{ width: '200%' }}
+                animate={{ x: ['0%', '-50%'] }}
+                transition={{ duration: 11, repeat: Infinity, ease: 'linear' }}
+              >
+                <path
+                  d="M0,80 C200,40 400,110 600,70 C800,30 1000,100 1200,70 C1400,40 1600,110 1800,70 C2000,30 2200,100 2400,70 L2400,120 L0,120 Z"
+                  fill="#A6C3E6"
+                  opacity="0.7"
+                />
+              </motion.svg>
             </div>
 
           </motion.div>
