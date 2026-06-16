@@ -209,36 +209,6 @@ export default function App() {
             transition={{ duration: 0.8, ease: "easeInOut" }}
             className="fixed inset-0 z-[200] bg-white flex flex-col items-center justify-center overflow-hidden"
           >
-            {/* Water Wave Background - More Layers */}
-            <div className="absolute inset-0 pointer-events-none opacity-30">
-              <motion.div 
-                animate={{ 
-                  y: [0, -30, 0],
-                  rotate: [0, 3, 0],
-                  scale: [1, 1.1, 1]
-                }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute bottom-[-10%] left-[-10%] right-[-10%] h-[70vh] bg-blue-500/30 blur-3xl rounded-[100%]"
-              />
-              <motion.div 
-                animate={{ 
-                  y: [0, -40, 0],
-                  rotate: [0, -4, 0],
-                  scale: [1, 1.15, 1]
-                }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute bottom-[-15%] left-[-20%] right-[-20%] h-[60vh] bg-cyan-400/25 blur-3xl rounded-[100%]"
-              />
-              <motion.div 
-                animate={{ 
-                  y: [0, -25, 0],
-                  x: [-10, 10, -10]
-                }}
-                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                className="absolute top-[10%] left-[-5%] w-[40vw] h-[40vw] bg-blue-300/10 blur-3xl rounded-full"
-              />
-            </div>
-
             <div className="relative z-10 flex flex-col items-center gap-10">
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
