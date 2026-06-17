@@ -12,6 +12,7 @@ import { PDFModal } from './components/PDFModal';
 import { Product, PaymentMode, CartItem, Category, CotizacionFormData, Idioma } from './types';
 import { PRODUCTS, MODE_LABELS } from './constants';
 import { downloadCotizacionPDF } from './hooks/usePDFCotizacion';
+import { trackUsage } from './lib/trackUsage';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -129,6 +130,23 @@ export default function App() {
     setIsGeneratingPDF(true);
     try {
       await downloadCotizacionPDF(cart, formData, hasBonus, hasROAndOther, downPayment, ivuExemptActive, firmaYGana, addOnQuantities);
+      trackUsage({
+        app: 'water',
+        consultor: formData.consultor.nombre,
+        agente_telefonico: formData.consultor.agenteTelefonico,
+        cliente_nombre: formData.cliente.nombre,
+        correo_cliente: formData.cliente.correo,
+        telefono_cliente: formData.cliente.telefono,
+        monto_cotizado: cartSubtotalCash,
+        idioma: formData.idioma,
+        detalle: {
+          items: cart.length,
+          unidades: cart.reduce((s, c) => s + c.quantity, 0),
+          productos: cart.map(c => c.product.id),
+          promoPadre: formData.promoMadres,
+          comboRO: hasROAndOther,
+        },
+      });
       setShowPDFModal(false);
       showToast('PDF descargado correctamente ✓');
     } catch (err) {
