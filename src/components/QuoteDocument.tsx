@@ -306,19 +306,19 @@ const s = StyleSheet.create({
     marginTop: 1,
   },
 
-  // Madres banner
+  // Día del Padre banner (azul Windmar)
   madresBanner: {
     marginHorizontal: 24, marginTop: 10, marginBottom: 4,
-    backgroundColor: '#FFEAF3', borderWidth: 1.5, borderColor: '#E84F97',
+    backgroundColor: '#E6EEFB', borderWidth: 1.5, borderColor: '#1D429B',
     borderRadius: 8, padding: 8,
     flexDirection: 'column', alignItems: 'center', gap: 2,
   },
   madresTitle: {
-    fontSize: 11, color: '#BE2E71', fontFamily: 'Helvetica-Bold',
+    fontSize: 11, color: '#1D429B', fontFamily: 'Helvetica-Bold',
     textAlign: 'center', letterSpacing: 0.5,
   },
   madresSub: {
-    fontSize: 7.5, color: '#8E2658', textAlign: 'center',
+    fontSize: 7.5, color: '#102E6E', textAlign: 'center',
     fontFamily: 'Helvetica', lineHeight: 1.3,
   },
 
@@ -481,7 +481,8 @@ function computeModeTotal({
   const roItem = items.find(i => i.product.id === 'trat-ro');
   const roHasPrice = roItem != null && col.getPrice(roItem) != null;
   if (hasROBundle && roHasPrice) preIvuTotal += 1000;
-  if (promoMadres) preIvuTotal += MADRES_DISCOUNT_WATER;
+  // Día del Padre: NO se combina con los $1,000 del Combo RO (solo aplica si no hay RO bundle)
+  if (promoMadres && !(hasROBundle && roHasPrice)) preIvuTotal += MADRES_DISCOUNT_WATER;
 
   const discRatio = subtotalSinIvu > 0 ? Math.min(1, preIvuTotal / subtotalSinIvu) : 0;
 
@@ -606,9 +607,10 @@ const ModeSection: React.FC<ModeSectionProps> = ({
       val: 1000,
     });
   }
-  if (promoMadres) {
+  // Día del Padre: NO se combina con los $1,000 del Combo RO
+  if (promoMadres && !(hasROBundle && roHasPrice)) {
     preIvuFull.push({
-      lbl: idioma === 'en' ? "Mother's 2026 (pre-tax)" : 'Promo Madres 2026 (sin IVU)',
+      lbl: idioma === 'en' ? "Father's Day 2026 (pre-tax)" : 'Promo Día del Padre 2026 (sin IVU)',
       val: MADRES_DISCOUNT_WATER,
     });
   }
@@ -1096,20 +1098,20 @@ export const QuoteDocument: React.FC<QuoteDocumentProps> = ({
           </View>
         )}
 
-        {/* Madres — banner con corazones (sólo cuando promo activa) */}
+        {/* Día del Padre — banner (sólo cuando promo activa) */}
         {promoMadres && (
           <View style={s.madresBanner} wrap={false}>
             <Text style={s.madresTitle}>
               {t(
-                '♥ ♥ Promo Mes de las Madres 2026 ♥ ♥',
-                "♥ ♥ Mother's Day Promo 2026 ♥ ♥",
+                '— Promo Día del Padre 2026 —',
+                "— Father's Day Promo 2026 —",
                 idioma,
               )}
             </Text>
             <Text style={s.madresSub}>
               {t(
-                `Descuento de $${MADRES_DISCOUNT_WATER} aplicado · Vigente del 7 al 14 de mayo 2026 · Solo en showroom con cliente citado`,
-                `$${MADRES_DISCOUNT_WATER} discount applied · Valid May 7–14, 2026 · In-showroom only with scheduled customer`,
+                `Descuento de $${MADRES_DISCOUNT_WATER} aplicado · Vigente del 18 al 25 de junio 2026 · Solo en showroom con cliente citado`,
+                `$${MADRES_DISCOUNT_WATER} discount applied · Valid June 18–25, 2026 · In-showroom only with scheduled customer`,
                 idioma,
               )}
             </Text>

@@ -395,8 +395,8 @@ export function PDFModal({
                   </span>
                 )}
                 {promoMadres && madresApply && (
-                  <span style={{ background: '#E84F97', color: 'white', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
-                    ❤ Madres
+                  <span style={{ background: '#1D429B', color: 'white', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                    👔 Padre
                   </span>
                 )}
                 {downPayment > 0 && (
@@ -541,52 +541,52 @@ export function PDFModal({
                   </div>
                 )}
 
-                {/* Madres — solo en vigencia */}
+                {/* Día del Padre — solo en vigencia */}
                 {madresAnnounce && (
                   <div style={{
-                    border: `2px solid ${promoMadres && madresApply ? '#E84F97' : '#F8B8D4'}`,
+                    border: `2px solid ${promoMadres && madresApply ? '#1D429B' : '#AEC2EC'}`,
                     borderRadius: 10, overflow: 'hidden',
-                    background: 'linear-gradient(135deg, #FFEAF3 0%, #FFF5FA 100%)',
+                    background: 'linear-gradient(135deg, #E6EEFB 0%, #F2F6FD 100%)',
                   }}>
                     <button type="button" onClick={() => setMadresCardOpen(o => !o)}
                       style={{
                         width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         padding: '10px 12px', background: 'transparent', border: 'none', cursor: 'pointer',
-                        fontSize: 12.5, fontWeight: 800, color: '#BE2E71',
+                        fontSize: 12.5, fontWeight: 800, color: '#1D429B',
                       }}>
-                      <span>❤️ {idioma === 'en' ? "Mother's Day 2026 — Water" : 'Mes de las Madres 2026 — Water'} ❤️</span>
+                      <span>👔 {idioma === 'en' ? "Father's Day 2026 — Water" : 'Día del Padre 2026 — Water'} 👔</span>
                       <span>{madresCardOpen ? '▴' : '▾'}</span>
                     </button>
                     {madresCardOpen && (
                       <div style={{ padding: '0 12px 12px' }}>
-                        <p style={{ fontSize: 11, color: '#8E2658', marginBottom: 10, lineHeight: 1.4 }}>
+                        <p style={{ fontSize: 11, color: '#102E6E', marginBottom: 10, lineHeight: 1.4 }}>
                           {idioma === 'en'
-                            ? <>Valid <b>May 7–14, 2026</b> · <b>$500</b> off any product · in-showroom only.</>
-                            : <>Vigente <b>7 al 14 de mayo 2026</b> · <b>$500</b> en cualquier producto · solo showroom.</>}
+                            ? <>Valid <b>June 18–25, 2026</b> · <b>$500</b> off products · in-showroom only. Does not combine with the <b>$1,000</b> RO Bundle.</>
+                            : <>Vigente <b>18 al 25 de junio 2026</b> · <b>$500</b> en los productos · solo showroom. No se combina con los <b>$1,000</b> del Combo RO.</>}
                         </p>
                         {!madresApply ? (
                           <p style={{ fontSize: 11, color: '#999', fontStyle: 'italic', padding: '8px 0', margin: 0 }}>
                             {idioma === 'en'
-                              ? 'Activation window opens May 7, 2026.'
-                              : 'La ventana de aplicación abre el 7 de mayo de 2026.'}
+                              ? 'Activation window opens June 18, 2026.'
+                              : 'La ventana de aplicación abre el 18 de junio de 2026.'}
                           </p>
                         ) : (
                           <label style={{
                             display: 'flex', alignItems: 'center', gap: 10,
                             padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
-                            background: promoMadres ? '#E84F97' : 'white',
-                            border: `2px solid ${promoMadres ? '#E84F97' : '#F8B8D4'}`,
+                            background: promoMadres ? '#1D429B' : 'white',
+                            border: `2px solid ${promoMadres ? '#1D429B' : '#AEC2EC'}`,
                           }}>
                             <input
                               type="checkbox"
                               checked={promoMadres}
                               onChange={e => onPromoMadresChange(e.target.checked)}
-                              style={{ width: 18, height: 18, accentColor: '#E84F97' }}
+                              style={{ width: 18, height: 18, accentColor: '#1D429B' }}
                             />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: promoMadres ? 'white' : '#BE2E71' }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: promoMadres ? 'white' : '#1D429B' }}>
                               {idioma === 'en'
-                                ? <>Apply <u>−${MADRES_DISCOUNT_WATER.toFixed(2)}</u> Mother's Day discount</>
-                                : <>Aplicar descuento Madres <u>−${MADRES_DISCOUNT_WATER.toFixed(2)}</u></>}
+                                ? <>Apply <u>−${MADRES_DISCOUNT_WATER.toFixed(2)}</u> Father's Day discount</>
+                                : <>Aplicar descuento Día del Padre <u>−${MADRES_DISCOUNT_WATER.toFixed(2)}</u></>}
                             </span>
                           </label>
                         )}

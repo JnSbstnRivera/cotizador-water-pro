@@ -1,18 +1,18 @@
 /**
- * Promo Mes de las Madres 2026 — Water
+ * Promo Día del Padre 2026 — Water
  *
- * Reglas extraídas del comunicado oficial (José Alicea, 04/30/2026):
- *   - Anuncia desde: 1 de mayo de 2026
- *   - Vender solo del: 7 al 14 de mayo de 2026
- *   - Descuento Water: $500 sobre cualquier producto del carrito
+ * Reglas (campaña Día del Padre):
+ *   - Vigencia: 18 al 25 de junio de 2026 (anuncio y aplicación en la misma ventana)
+ *   - Descuento Water: $500 sobre los productos del carrito
+ *   - NO se combinan los $1,000 del Combo RO con los $500 (se aplica solo el mayor)
  *   - Solo ventas en showroom (Roosevelt, Mayagüez, Ponce, Hatillo)
  */
 
 export const MADRES_DISCOUNT_WATER = 500;
 
-const ANNOUNCE_START = new Date('2026-05-01T00:00:00');
-const SALE_START     = new Date('2026-05-07T00:00:00');
-const SALE_END       = new Date('2026-05-14T23:59:59');
+const ANNOUNCE_START = new Date('2026-06-18T00:00:00');
+const SALE_START     = new Date('2026-06-18T00:00:00');
+const SALE_END       = new Date('2026-06-25T23:59:59');
 
 /** ¿Hay que mostrar el banner promo en la app? (1 al 14 de mayo) */
 export function isMadresAnnounceActive(now: Date = new Date()): boolean {
