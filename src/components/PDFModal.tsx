@@ -396,7 +396,7 @@ export function PDFModal({
                 )}
                 {promoMadres && madresApply && (
                   <span style={{ background: '#1D429B', color: 'white', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
-                    👔 Padre
+                    🧔 Padre
                   </span>
                 )}
                 {downPayment > 0 && (
@@ -554,7 +554,7 @@ export function PDFModal({
                         padding: '10px 12px', background: 'transparent', border: 'none', cursor: 'pointer',
                         fontSize: 12.5, fontWeight: 800, color: '#1D429B',
                       }}>
-                      <span>👔 {idioma === 'en' ? "Father's Day 2026 — Water" : 'Día del Padre 2026 — Water'} 👔</span>
+                      <span>🧔 {idioma === 'en' ? "Father's Day 2026 — Water" : 'Día del Padre 2026 — Water'} 🧔</span>
                       <span>{madresCardOpen ? '▴' : '▾'}</span>
                     </button>
                     {madresCardOpen && (
