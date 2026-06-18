@@ -1,4 +1,4 @@
-# 💧 Cotizador Water Pro
+# 💧 COTIZADOR WATER PRO
 
 Cotizador web de **sistemas de agua** (filtros, purificación, calentadores) para el equipo comercial de **Windmar Home PR**. Complementa la oferta solar con productos de hogar: arma la cotización con carrito y genera un PDF profesional listo para el cliente.
 
