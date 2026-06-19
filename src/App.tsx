@@ -28,6 +28,8 @@ export default function App() {
   const [toast, setToast] = useState<{ msg: string; isError?: boolean } | null>(null);
   const [hasBonus, setHasBonus] = useState(false);
   const [downPayment, setDownPayment] = useState(0);
+  // Combo RO + Suavizador POE (−$1,000) — ahora OPCIONAL (checkbox junto al pronto pago)
+  const [roBundle, setRoBundle] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [idiomaPDF, setIdiomaPDF] = useState<Idioma>('es');
@@ -120,8 +122,9 @@ export default function App() {
 
 
   const hasRO = cart.some(item => item.product.id === 'trat-ro');
-  const hasOtherForPDF = cart.some(item => item.product.id !== 'trat-ro');
-  const hasROAndOther = hasRO && hasOtherForPDF;
+  const hasPOE = cart.some(item => item.product.id === 'trat-poe');
+  const roBundleEligible = hasRO && hasPOE;            // Combo RO + Suavizador POE en el carrito
+  const roBundleActive = roBundle && roBundleEligible; // solo si está marcado el checkbox
   const hasCisternasInCart = cart.some(item => item.product.installPercent !== undefined);
   // El toggle CC 26-08 solo tiene efecto si hay cisternas; auto-apaga si se vacía el carrito
   const ivuExemptActive = ivuExemptCC2608 && hasCisternasInCart;
@@ -129,7 +132,7 @@ export default function App() {
   const handlePDFGenerate = async (formData: CotizacionFormData) => {
     setIsGeneratingPDF(true);
     try {
-      await downloadCotizacionPDF(cart, formData, hasBonus, hasROAndOther, downPayment, ivuExemptActive, firmaYGana, addOnQuantities);
+      await downloadCotizacionPDF(cart, formData, hasBonus, roBundleActive, downPayment, ivuExemptActive, firmaYGana, addOnQuantities);
       trackUsage({
         app: 'water',
         consultor: formData.consultor.nombre,
@@ -144,7 +147,7 @@ export default function App() {
           unidades: cart.reduce((s, c) => s + c.quantity, 0),
           productos: cart.map(c => c.product.id),
           promoPadre: formData.promoMadres,
-          comboRO: hasROAndOther,
+          comboRO: roBundleActive,
         },
       });
       setShowPDFModal(false);
@@ -184,7 +187,7 @@ export default function App() {
     ...(firmaYGana
       ? { [idiomaPDF === 'en' ? 'Sign & Win (cashback)' : 'Firma y Gana (cashback)']: '−$500.00' }
       : {}),
-    ...(hasROAndOther
+    ...(roBundleActive
       ? { [idiomaPDF === 'en' ? 'RO Bundle' : 'Combo RO']: '−$1,000.00' }
       : {}),
     ...(ivuExemptActive && ivuExemptSavings > 0
@@ -209,7 +212,7 @@ export default function App() {
         onIdiomaChange={setIdiomaPDF}
         hasSolarBundle={hasBonus}
         onHasSolarBundleChange={setHasBonus}
-        hasROAndOther={hasROAndOther}
+        roBundleActive={roBundleActive}
         promoMadres={promoMadres}
         onPromoMadresChange={setPromoMadres}
         downPayment={downPayment}
@@ -373,6 +376,9 @@ export default function App() {
                 setSyncTerm={setSyncTerm}
                 downPayment={downPayment}
                 setDownPayment={setDownPayment}
+                roBundle={roBundle}
+                onRoBundleChange={setRoBundle}
+                roBundleEligible={roBundleEligible}
                 onUpdateQty={handleUpdateQty}
                 onRemoveItem={handleRemoveItem}
                 onClear={handleClearCart}

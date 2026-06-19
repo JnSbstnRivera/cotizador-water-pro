@@ -12,6 +12,9 @@ interface CartProps {
   setSyncTerm: (t: 18 | 61) => void;
   downPayment: number;
   setDownPayment: (v: number) => void;
+  roBundle: boolean;
+  onRoBundleChange: (v: boolean) => void;
+  roBundleEligible: boolean;
   onUpdateQty: (id: string, delta: number) => void;
   onRemoveItem: (id: string) => void;
   onClear: () => void;
@@ -152,6 +155,7 @@ const ItemRow: React.FC<ItemRowProps> = ({ item, mode, syncTerm, onUpdateQty, on
 export function Cart({
   items, mode, setMode, syncTerm, setSyncTerm,
   downPayment, setDownPayment,
+  roBundle, onRoBundleChange,
   onUpdateQty, onRemoveItem, onClear, onPDF,
   addOnQuantities, onAddOnQtyChange,
 }: CartProps) {
@@ -165,14 +169,15 @@ export function Cart({
 
   const isMonthly = mode === 'synchrony';
 
-  // Bundle RO: $1,000 descuento si lleva Reverse Osmosis (trat-ro) + otro producto
-  // y RO tiene precio en el modo activo (RO no tiene precio en synchrony m18/m61)
+  // Combo RO + Suavizador POE: $1,000 descuento si lleva Reverse Osmosis (trat-ro) Y POE (trat-poe)
+  // juntos y RO tiene precio en el modo activo. Ahora es OPCIONAL (checkbox).
   const hasROInCart = items.some(it => it.product.id === 'trat-ro');
-  const hasOtherProductInCart = items.some(it => it.product.id !== 'trat-ro');
+  const hasPOEInCart = items.some(it => it.product.id === 'trat-poe');
   const roItem = items.find(it => it.product.id === 'trat-ro');
   const roHasPriceInMode = roItem ? getItemPrice(roItem, mode, syncTerm) != null : false;
   const RO_BUNDLE_DISCOUNT = 1000;
-  const showROBundleDiscount = hasROInCart && hasOtherProductInCart && roHasPriceInMode;
+  const roBundleCanApply = hasROInCart && hasPOEInCart && roHasPriceInMode;
+  const showROBundleDiscount = roBundleCanApply && roBundle;   // solo si el asesor marca el checkbox
   const roBundleDiscount = showROBundleDiscount ? RO_BUNDLE_DISCOUNT : 0;
 
   // Add-Ons: subtotal con IVU (los precios en la lista son SIN IVU)
@@ -513,6 +518,22 @@ export function Cart({
             />
           </div>
         </div>
+
+        {/* Combo RO + POE — opcional (solo aparece si llevas RO + Suavizador POE) */}
+        {roBundleCanApply && (
+          <label className="flex items-center gap-2 cursor-pointer mt-2 p-2 rounded-lg bg-windmar-blue/5 dark:bg-white/5 border border-windmar-blue-light/30 dark:border-white/10">
+            <input
+              type="checkbox"
+              checked={roBundle}
+              onChange={e => onRoBundleChange(e.target.checked)}
+              className="w-4 h-4 accent-windmar-blue cursor-pointer"
+            />
+            <span className="text-xs font-bold text-windmar-blue dark:text-windmar-blue-light flex-1">
+              💧 Combo RO + Suavizador POE
+            </span>
+            <span className="text-xs font-black text-windmar-blue dark:text-windmar-blue-light">−$1,000</span>
+          </label>
+        )}
 
         {/* Total a pagar */}
         {downPayment > 0 && (
