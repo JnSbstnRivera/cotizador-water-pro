@@ -28,8 +28,9 @@ export default function App() {
   const [toast, setToast] = useState<{ msg: string; isError?: boolean } | null>(null);
   const [hasBonus, setHasBonus] = useState(false);
   const [downPayment, setDownPayment] = useState(0);
-  // Combo RO + Suavizador POE (−$1,000) — ahora OPCIONAL (checkbox junto al pronto pago)
-  const [roBundle, setRoBundle] = useState(false);
+  // Combo RO + Suavizador POE (−$1,000) — auto-aplica cuando ambos productos estan
+  // en el carrito (checkbox arranca marcado). Asesor puede desmarcar si caso especial.
+  const [roBundle, setRoBundle] = useState(true);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [idiomaPDF, setIdiomaPDF] = useState<Idioma>('es');
@@ -212,7 +213,7 @@ export default function App() {
         onIdiomaChange={setIdiomaPDF}
         hasSolarBundle={hasBonus}
         onHasSolarBundleChange={setHasBonus}
-        roBundleActive={roBundleActive}
+        hasROAndOther={roBundleActive}
         promoMadres={promoMadres}
         onPromoMadresChange={setPromoMadres}
         downPayment={downPayment}
